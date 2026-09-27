@@ -1,0 +1,662 @@
+/* ============================================================
+   RIADH CARD — Global Stylesheet
+   Design System: Ultra-Premium Executive Light Theme
+   Fluid Metallic Gold Accent System
+   ============================================================ */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─────────────────────────────────────────────────────────────
+   §1  GOOGLE FONTS IMPORT
+   ───────────────────────────────────────────────────────────── */
+
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+/* ─────────────────────────────────────────────────────────────
+   §2  CSS CUSTOM PROPERTIES  (Design Tokens)
+   ───────────────────────────────────────────────────────────── */
+
+:root {
+  --riyadh-lattice: url("data:image/svg+xml,%3Csvg width='48' height='48' viewBox='0 0 48 48' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M24 0L48 24L24 48L0 24Z' fill='none' stroke='%23D4AF37' stroke-width='0.35' opacity='0.12'/%3E%3C/svg%3E");
+
+  /* Gold Spectrum */
+  --gold-champagne: #FFF1CE;
+  --gold-metallic:  #C58A27;
+  --gold-deep:      #875317;
+  --gold-foil:      #A86E1C;
+  --emerald-bright: #1F9D68;
+  --emerald-deep:   #13734B;
+
+  /* Obsidian Scale */
+  --obsidian-900: #1C1917;
+  --obsidian-800: #30251F;
+  --obsidian-600: #5B4C41;
+
+  /* Backgrounds */
+  --bg-royal:  #FFFFFF;
+  --bg-pearl:  #FAF8F5;
+  --bg-muted:  #F3ECE0;
+  --bg-noir:   #1C1917;
+  --sand-warm: #E4D6C2;
+
+  /* Typography */
+  --font-sans:    'Outfit', sans-serif;
+  --font-display: 'Cormorant Garamond', serif;
+  --font-mono:    'JetBrains Mono', monospace;
+
+  /* Fluid Gold Gradient (reusable CSS value) */
+  --gradient-fluid-gold: linear-gradient(
+    135deg,
+    #FFF1CE 0%,
+    #EFC06A 25%,
+    #C58A27 54%,
+    #FFF7DF 76%,
+    #B97818 100%
+  );
+
+  --gradient-text-gold: linear-gradient(
+    135deg,
+    #754713 0%,
+    #C58A27 48%,
+    #7A4A12 100%
+  );
+
+  /* Animated shimmer gradient */
+  --gradient-shimmer: linear-gradient(
+    105deg,
+    transparent 40%,
+    rgba(212, 175, 55, 0.45) 50%,
+    transparent 60%
+  );
+
+  /* Shadows */
+  --shadow-gold:    0 12px 35px -10px rgba(145, 93, 20, 0.28);
+  --shadow-gold-lg: 0 26px 70px -18px rgba(113, 69, 14, 0.38);
+  --shadow-glass:   0 14px 36px -20px rgba(56, 40, 26, 0.22);
+
+  /* Border radius */
+  --radius-card:  1.25rem;
+  --radius-modal: 1.5rem;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   §3  BASE RESET & BODY
+   ───────────────────────────────────────────────────────────── */
+
+@layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--bg-pearl);
+    color: var(--obsidian-900);
+    line-height: 1.6;
+  }
+
+  /* Ambient page shell — warm sand + subtle geometric lattice */
+  .page-canvas {
+    position: relative;
+    background-color: var(--bg-pearl);
+    background-image:
+      var(--riyadh-lattice, none),
+      radial-gradient(circle at 82% 5%, rgba(197, 138, 39, 0.10), transparent 26%),
+      radial-gradient(circle at 12% 18%, rgba(239, 192, 106, 0.19), transparent 28%),
+      linear-gradient(180deg, #FFFDF9 0%, var(--bg-pearl) 50%, #F3ECE0 100%);
+    background-size: 48px 48px, 100% 100%;
+    min-height: 100dvh;
+  }
+
+  .page-canvas::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.5;
+    background: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(239, 192, 106, 0.16), transparent 60%);
+  }
+
+  .page-canvas::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.04;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  ::selection {
+    background-color: rgba(212, 175, 55, 0.25);
+    color: var(--obsidian-900);
+  }
+
+  /* Scrollbar — gold accented */
+  ::-webkit-scrollbar        { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track  { background: var(--bg-pearl); }
+  ::-webkit-scrollbar-thumb  {
+    background: var(--gold-metallic);
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--gold-deep);
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   §4  FLUID METALLIC GOLD UTILITIES
+   The core custom utility classes for the RIADH CARD system.
+   ───────────────────────────────────────────────────────────── */
+
+@layer utilities {
+
+  /* ── bg-fluid-gold ───────────────────────────────────────── */
+  /* Animated metallic gold gradient background.
+     Use on hero sections, card backs, and accent elements.     */
+  .bg-fluid-gold {
+    background: var(--gradient-fluid-gold);
+    background-size: 300% 300%;
+    animation: fluid-gold-shift 6s ease infinite;
+  }
+
+  @keyframes fluid-gold-shift {
+    0%   { background-position: 0%   50%; }
+    50%  { background-position: 100% 50%; }
+    100% { background-position: 0%   50%; }
+  }
+
+  /* Static variant — no animation for performance-critical areas */
+  .bg-fluid-gold-static {
+    background: var(--gradient-fluid-gold);
+  }
+
+  /* ── text-gold-gradient ──────────────────────────────────── */
+  /* Metallic gold text effect for headings and brand name.
+     Compatible with all font weights.                          */
+  .text-gold-gradient {
+    background: var(--gradient-text-gold);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+    animation: fluid-gold-shift 4s ease infinite;
+  }
+
+  /* Static variant */
+  .text-gold-gradient-static {
+    background: var(--gradient-text-gold);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+
+  /* ── border-gold-foil ────────────────────────────────────── */
+  /* Gold foil border — uses a gradient border technique.       */
+  .border-gold-foil {
+    position: relative;
+    border: 1px solid transparent;
+    background-clip: padding-box;
+  }
+
+  .border-gold-foil::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    background: var(--gradient-fluid-gold);
+    z-index: -1;
+  }
+
+  /* Simple amber border (no pseudo-element required) */
+  .border-gold-soft {
+    border-color: rgba(212, 175, 55, 0.40);
+  }
+
+  /* ── shadow-gold-glow ────────────────────────────────────── */
+  /* Warm ambient gold drop shadow.                             */
+  .shadow-gold-glow {
+    box-shadow: var(--shadow-gold);
+  }
+
+  .shadow-gold-glow-lg {
+    box-shadow: var(--shadow-gold-lg);
+  }
+
+  /* Breathing glow — use for CTA elements */
+  .shadow-gold-breathe {
+    animation: gold-breathe-shadow 3s ease-in-out infinite;
+  }
+
+  @keyframes gold-breathe-shadow {
+    0%, 100% { box-shadow: 0 0 20px rgba(212,175,55,0.20); }
+    50%       { box-shadow: 0 0 40px rgba(212,175,55,0.55); }
+  }
+
+  /* ── glass-card ──────────────────────────────────────────── */
+  /* Glassmorphism surface with warm gold tint.                 */
+  .glass-card {
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(230, 184, 74, 0.20);
+    box-shadow: var(--shadow-glass);
+  }
+
+  .glass-card-dark {
+    background: rgba(9, 18, 30, 0.82);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(212, 175, 55, 0.18);
+    box-shadow: 0 8px 32px -8px rgba(0, 0, 0, 0.40);
+  }
+
+  /* ── shimmer-overlay ─────────────────────────────────────── */
+  /* Apply to an element; creates a moving shimmer effect.      */
+  .shimmer-overlay {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .shimmer-overlay::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--gradient-shimmer);
+    background-size: 200% 100%;
+    animation: shimmer-sweep 2.2s linear infinite;
+  }
+
+  @keyframes shimmer-sweep {
+    0%   { background-position: -200% center; }
+    100% { background-position:  200% center; }
+  }
+
+  /* ── nfc-ring ────────────────────────────────────────────── */
+  /* NFC presence pulse rings animation.                        */
+  .nfc-ring {
+    position: relative;
+  }
+
+  .nfc-ring::before,
+  .nfc-ring::after {
+    content: '';
+    position: absolute;
+    inset: -8px;
+    border-radius: 50%;
+    border: 2px solid rgba(212, 175, 55, 0.60);
+    animation: nfc-ripple 2s ease-out infinite;
+  }
+
+  .nfc-ring::after {
+    animation-delay: 0.6s;
+    border-color: rgba(212, 175, 55, 0.30);
+  }
+
+  @keyframes nfc-ripple {
+    0%   { transform: scale(1);   opacity: 1; }
+    100% { transform: scale(1.8); opacity: 0; }
+  }
+
+  /* ── tier badge utilities ────────────────────────────────── */
+  .tier-bronze   { background: linear-gradient(135deg, #CD7F32, #A0522D); }
+  .tier-silver   { background: linear-gradient(135deg, #C0C0C0, #808080); }
+  .tier-gold     { background: var(--gradient-fluid-gold); }
+  .tier-platinum { background: linear-gradient(135deg, #E8E8E8, #B0C4DE, #C0C0C0); }
+
+  /* ── focus ring ──────────────────────────────────────────── */
+  .focus-gold:focus-visible {
+    outline: 2px solid var(--gold-metallic);
+    outline-offset: 2px;
+  }
+
+  /* ── typography utilities ────────────────────────────────── */
+  .font-display { font-family: var(--font-display); }
+  .font-mono    { font-family: var(--font-mono); }
+
+  /* Luxury heading with letter spacing */
+  .heading-luxury {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+  }
+
+  /* ALL CAPS luxury label */
+  .label-gold {
+    font-family: var(--font-sans);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--gold-deep);
+  }
+
+  .surface-luxury {
+    background: rgba(255, 255, 255, 0.78);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(212, 175, 55, 0.14);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.9) inset,
+      0 24px 60px -24px rgba(12, 10, 9, 0.12);
+  }
+
+  .footer-noir {
+    background: linear-gradient(180deg, var(--bg-noir) 0%, #050504 100%);
+    border-top: 1px solid rgba(212, 175, 55, 0.15);
+  }
+
+  .dashboard-shell {
+    background:
+      radial-gradient(circle at 88% 0%, rgba(239, 192, 106, 0.16), transparent 28%),
+      radial-gradient(circle at 6% 22%, rgba(197, 138, 39, 0.08), transparent 24%),
+      linear-gradient(180deg, #FFFCF7 0%, #FAF8F5 48%, #F3ECE0 100%);
+  }
+
+  .dashboard-nav {
+    background: rgba(255, 252, 247, 0.82);
+    border-color: rgba(168, 110, 28, 0.18);
+    box-shadow: 0 10px 28px -24px rgba(72, 46, 13, 0.36);
+  }
+
+  .customer-shell {
+    background:
+      radial-gradient(circle at 50% -10%, rgba(239, 192, 106, 0.18), transparent 35%),
+      radial-gradient(circle at 100% 38%, rgba(197, 138, 39, 0.08), transparent 28%);
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   §5  COMPONENT BASE STYLES
+   ───────────────────────────────────────────────────────────── */
+
+@layer components {
+
+  /* ── Luxury Button ───────────────────────────────────────── */
+  .btn-gold {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.75rem;
+    font-family: var(--font-sans);
+    font-size: 0.9rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: #2D1807;
+    background: var(--gradient-fluid-gold);
+    background-size: 200% auto;
+    border: none;
+    border-radius: 9999px;
+    box-shadow: var(--shadow-gold);
+    cursor: pointer;
+    transition:
+      background-position 0.4s ease,
+      box-shadow 0.3s ease,
+      transform 0.2s ease;
+  }
+
+  .btn-gold:hover {
+    background-position: right center;
+    box-shadow: var(--shadow-gold-lg);
+    transform: translateY(-1px);
+  }
+
+  .btn-gold:active {
+    transform: translateY(0);
+    box-shadow: var(--shadow-gold);
+  }
+
+  .btn-gold:disabled {
+    color: rgba(45, 24, 7, 0.62);
+    background: linear-gradient(135deg, #F7E7BE, #E9C77A);
+    box-shadow: none;
+  }
+
+  .btn-gold:focus-visible {
+    outline: 2px solid var(--gold-metallic);
+    outline-offset: 3px;
+  }
+
+  .btn-ghost-gold {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.75rem;
+    font-family: var(--font-sans);
+    font-size: 0.9rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: #633A11;
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid rgba(168, 110, 28, 0.42);
+    border-radius: 9999px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+  }
+
+  .btn-ghost-gold:hover {
+    background: #FFF1CE;
+    border-color: var(--gold-metallic);
+    box-shadow: var(--shadow-gold);
+  }
+
+  .btn-ghost-gold:focus-visible,
+  .input-gold:focus-visible {
+    outline: 2px solid #875317;
+    outline-offset: 3px;
+  }
+
+  /* ── Luxury Input ────────────────────────────────────────── */
+  .input-gold {
+    width: 100%;
+    padding: 0.875rem 1.25rem;
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--obsidian-900);
+    background: var(--bg-royal);
+    border: 1px solid rgba(212, 175, 55, 0.30);
+    border-radius: 0.75rem;
+    box-shadow: var(--shadow-glass);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    outline: none;
+  }
+
+  .input-gold::placeholder {
+    color: #978777;
+    font-weight: 400;
+  }
+
+  .input-gold:focus {
+    border-color: var(--gold-metallic);
+    box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.18), var(--shadow-glass);
+  }
+
+  /* ── Luxury Card ─────────────────────────────────────────── */
+  .card-luxury {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(250, 253, 251, 0.76));
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(168, 110, 28, 0.20);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-glass);
+    transition: box-shadow 0.3s ease, transform 0.3s ease;
+  }
+
+  .card-luxury:hover {
+    box-shadow: 0 22px 50px -28px rgba(9, 18, 30, 0.42), 0 12px 30px -24px rgba(230, 184, 74, 0.65);
+    transform: translateY(-4px);
+  }
+
+  /* ── Modal overlay ───────────────────────────────────────── */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.65);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+    padding: 1rem;
+  }
+
+  .modal-panel {
+    background: var(--bg-royal);
+    border: 1px solid rgba(212, 175, 55, 0.25);
+    border-radius: var(--radius-modal);
+    box-shadow: var(--shadow-gold-lg);
+    width: 100%;
+    max-width: 480px;
+    animation: scale-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  @keyframes scale-in {
+    0%   { opacity: 0; transform: scale(0.92); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+
+  /* ── Progress bar (tier progress) ───────────────────────────*/
+  .progress-gold {
+    height: 6px;
+    background: rgba(212, 175, 55, 0.15);
+    border-radius: 9999px;
+    overflow: hidden;
+  }
+
+  .progress-gold-fill {
+    height: 100%;
+    background: var(--gradient-fluid-gold);
+    background-size: 200% 100%;
+    border-radius: 9999px;
+    animation: shimmer-sweep 2.5s linear infinite;
+    transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  /* ── Badge ───────────────────────────────────────────────── */
+  .badge-tier {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.2rem 0.7rem;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border-radius: 9999px;
+    color: var(--obsidian-900);
+  }
+
+  /* ── Divider with gold accent ────────────────────────────── */
+  .divider-gold {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    color: rgba(212, 175, 55, 0.60);
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .divider-gold::before,
+  .divider-gold::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(
+      to right,
+      transparent,
+      rgba(212, 175, 55, 0.40),
+      transparent
+    );
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   §6  PAGE TRANSITIONS
+   ───────────────────────────────────────────────────────────── */
+
+@keyframes fade-up {
+  0%   { opacity: 0; transform: translateY(16px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-fade-up-delay-1 { animation-delay: 0.08s; }
+.animate-fade-up-delay-2 { animation-delay: 0.16s; }
+.animate-fade-up-delay-3 { animation-delay: 0.24s; }
+.animate-fade-up-delay-4 { animation-delay: 0.32s; }
+
+/* ─────────────────────────────────────────────────────────────
+   §7  LUXURY CARD MOCKUP (PWA VIP Card)
+   ───────────────────────────────────────────────────────────── */
+
+.vip-card {
+  aspect-ratio: 1.586 / 1;   /* ISO 7810 credit card ratio */
+  border-radius: 1.25rem;
+  background:
+    radial-gradient(circle at 92% 8%, rgba(54, 211, 153, 0.23), transparent 28%),
+    linear-gradient(145deg, #07111F 0%, #10263A 45%, #0B1827 75%, #08101B 100%);
+  border: 1px solid rgba(230, 184, 74, 0.38);
+  box-shadow:
+    0 25px 60px -15px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(212, 175, 55, 0.10) inset;
+  position: relative;
+  overflow: hidden;
+  transform-style: preserve-3d;
+  transition: transform 260ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 260ms ease;
+}
+
+.vip-card::before {
+  content: '';
+  position: absolute;
+  top: -40%;
+  right: -20%;
+  width: 70%;
+  height: 120%;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(212, 175, 55, 0.12) 0%,
+    transparent 70%
+  );
+  pointer-events: none;
+}
+
+.vip-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--gradient-shimmer);
+  background-size: 200% 100%;
+  animation: shimmer-sweep 3.5s linear infinite;
+  opacity: 0.28;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

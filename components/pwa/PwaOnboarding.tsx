@@ -95,7 +95,13 @@ export function PwaOnboarding({ merchantId, merchantName, merchantLogoUrl, slug,
           'Content-Type': 'application/json',
           ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ fullName, merchantId, referralCode }),
+        body: JSON.stringify({
+            fullName,
+            merchantId,
+            referralCode,
+            // Included for dev bypass (SKIP_OTP=true) — server reads phone directly
+            ...(SKIP_OTP ? { phone: phone.trim() } : {}),
+          }),
       });
 
       if (!res.ok) {

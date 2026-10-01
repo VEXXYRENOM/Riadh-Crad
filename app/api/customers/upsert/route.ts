@@ -22,6 +22,42 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: 'Missing fields' }, { status: 400 });
     }
 
+    // ── DEV BYPASS: Skip OTP phone session check ─────────────────────
+    // TODO: Remove this block when SMS provider is ready and SKIP_OTP_VERIFICATION=false
+    if (process.env.SKIP_OTP_VERIFICATION === 'true') {
+      const phone = (body as UpsertBody & { phone?: string }).phone;
+      if (!phone) {
+        return NextResponse.json({ success: false, message: 'Phone number is required in dev bypass mode.' }, { status: 400 });
+      }
+      const admin = await createSupabaseAdminClient();
+
+      const { data: existingByPhone } = await admin
+        .from('customers')
+        .select('id, auth_uid')
+        .eq('phone', phone)
+        .maybeSingle();
+
+      const customerId = existingByPhone?.id;
+      const customerWrite = customerId
+        ? admin.from('customers').update({ full_name: fullName.trim() }).eq('id', customerId).select('id').single()
+        : admin.from('customers').insert({ phone, full_name: fullName.trim() }).select('id').single();
+      const { data: customer, error } = await customerWrite;
+
+      if (error || !customer) {
+        return NextResponse.json({ success: false, message: error?.message ?? 'Failed to create customer' }, { status: 500 });
+      }
+
+      await admin
+        .from('loyalty_cards')
+        .upsert(
+          { customer_id: customer.id, merchant_id: merchantId, total_points: 0, lifetime_points: 0 },
+          { onConflict: 'customer_id, merchant_id', ignoreDuplicates: true }
+        );
+
+      return NextResponse.json({ success: true, customerId: customer.id }, { status: 200 });
+    }
+    // ── END DEV BYPASS ───────────────────────────────────────────────
+
     // Primary: try cookie-based session (standard SSR flow)
     const supabase = await createSupabaseServerClient();
     let { data: { user }, error: authError } = await supabase.auth.getUser();

@@ -16,7 +16,7 @@ import { RecentMembers }   from '@/components/dashboard/RecentMembers';
 import { DashboardClient } from '@/components/dashboard/DashboardClient';
 import type { MemberRow }  from '@/components/dashboard/RecentMembers';
 import type { CustomerRow, LoyaltyCardRow } from '@/types';
-import { ExternalLink, Megaphone, QrCode, Radio } from 'lucide-react';
+import { ExternalLink, Megaphone, QrCode, Radio, Settings } from 'lucide-react';
 
 export default async function DashboardPage() {
   // ── Auth guard ───────────────────────────────────────────
@@ -90,6 +90,7 @@ export default async function DashboardPage() {
             <span className="mr-1 text-[10px] font-bold uppercase tracking-[0.14em] text-obsidian-400">Quick actions</span>
             <a href={`/b/${merchant.slug}`} className="inline-flex items-center gap-1.5 rounded-xl border border-gold-200 bg-white/80 px-3 py-2 text-xs font-semibold text-obsidian-700 transition hover:border-gold-400 hover:bg-gold-50"><ExternalLink className="h-3.5 w-3.5 text-gold-700" /> Customer card</a>
             <a href="/merchant/dashboard/campaigns" className="inline-flex items-center gap-1.5 rounded-xl border border-gold-200 bg-white/80 px-3 py-2 text-xs font-semibold text-obsidian-700 transition hover:border-gold-400 hover:bg-gold-50"><Megaphone className="h-3.5 w-3.5 text-gold-700" /> Campaigns</a>
+            <a href="/merchant/dashboard/settings" className="inline-flex items-center gap-1.5 rounded-xl border border-gold-200 bg-white/80 px-3 py-2 text-xs font-semibold text-obsidian-700 transition hover:border-gold-400 hover:bg-gold-50"><Settings className="h-3.5 w-3.5 text-gold-700" /> Store profile</a>
             <a href="/merchant/dashboard/qr" className="inline-flex items-center gap-1.5 rounded-xl bg-obsidian-900 px-3 py-2 text-xs font-bold text-gold-200 shadow-[0_8px_16px_-10px_rgba(47,31,14,.7)] transition hover:-translate-y-0.5 hover:bg-obsidian-800"><QrCode className="h-3.5 w-3.5" /> Set up NFC &amp; QR</a>
           </div>
         </div>

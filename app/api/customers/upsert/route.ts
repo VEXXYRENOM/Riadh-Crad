@@ -10,12 +10,13 @@ import { createSupabaseServerClient, createSupabaseAdminClient } from '@/lib/sup
 interface UpsertBody {
   fullName:   string;
   merchantId: string;
+  referralCode?: string;
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as UpsertBody;
-    const { fullName, merchantId } = body;
+    const { fullName, merchantId, referralCode } = body;
 
     if (!fullName?.trim() || !merchantId) {
       return NextResponse.json({ success: false, message: 'Missing fields' }, { status: 400 });
@@ -89,6 +90,26 @@ export async function POST(request: NextRequest) {
 
     if (cardError) {
       console.error('[upsert card]', cardError);
+    }
+
+    // We only record the invitation here. The database grants both rewards
+    // after the invited customer completes their first paid visit.
+    const code = referralCode?.trim().toUpperCase();
+    if (code && /^[A-Z0-9]{8}$/.test(code)) {
+      const { data: codeRow } = await admin
+        .from('referral_codes')
+        .select('customer_id')
+        .eq('merchant_id', merchantId)
+        .eq('code', code)
+        .maybeSingle();
+      if (codeRow && codeRow.customer_id !== customer.id) {
+        const { error: referralError } = await admin.from('referrals').upsert({
+          merchant_id: merchantId,
+          referrer_customer_id: codeRow.customer_id,
+          referred_customer_id: customer.id,
+        }, { onConflict: 'merchant_id,referred_customer_id', ignoreDuplicates: true });
+        if (referralError) console.error('[upsert referral]', referralError.message);
+      }
     }
     
     return NextResponse.json({ success: true, customerId: customer.id }, { status: 200 });

@@ -14,11 +14,16 @@ interface PwaOnboardingProps {
   merchantName:   string;
   merchantLogoUrl?: string | null;
   slug:           string;
+  referralCode?:  string | null;
 }
 
 type Step = 'PHONE' | 'NAME' | 'OTP' | 'LOADING';
 
-export function PwaOnboarding({ merchantId, merchantName, merchantLogoUrl, slug }: PwaOnboardingProps) {
+// TODO: Re-enable OTP verification when SMS provider is ready.
+// Set this to false to restore full phone verification flow.
+const SKIP_OTP = true;
+
+export function PwaOnboarding({ merchantId, merchantName, merchantLogoUrl, slug, referralCode }: PwaOnboardingProps) {
   const [step, setStep]         = useState<Step>('PHONE');
   const [phone, setPhone]       = useState('');
   const [fullName, setFullName] = useState('');
@@ -32,8 +37,15 @@ export function PwaOnboarding({ merchantId, merchantName, merchantLogoUrl, slug 
     e.preventDefault();
     if (!phone.trim()) return;
     setError(null);
-    setStep('LOADING');
 
+    // TODO: Remove SKIP_OTP block and restore OTP flow when SMS is ready.
+    if (SKIP_OTP) {
+      // Bypass OTP — skip directly to name entry
+      setStep('NAME');
+      return;
+    }
+
+    setStep('LOADING');
     void supabase.auth.signInWithOtp({ phone: phone.trim() }).then(({ error: otpError }) => {
       if (otpError) {
         setError(otpError.message);
@@ -83,7 +95,7 @@ export function PwaOnboarding({ merchantId, merchantName, merchantLogoUrl, slug 
           'Content-Type': 'application/json',
           ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ fullName, merchantId }),
+        body: JSON.stringify({ fullName, merchantId, referralCode }),
       });
 
       if (!res.ok) {

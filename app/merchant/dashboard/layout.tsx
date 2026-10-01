@@ -8,6 +8,8 @@ import { redirect } from 'next/navigation';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { getMerchantByOwnerId } from '@/services/merchant.service';
 import type { Metadata } from 'next';
+import Link from 'next/link';
+import { Settings } from 'lucide-react';
 
 export const metadata: Metadata = {
   title: 'Dashboard | RIADH CARD',
@@ -43,6 +45,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </div>
 
         <div className="flex items-center gap-3">
+          <Link
+            href="/merchant/dashboard/settings"
+            className="inline-flex h-9 items-center gap-2 rounded-xl border border-gold-200 bg-white/70 px-3 text-xs font-semibold text-obsidian-700 transition hover:border-gold-400 hover:bg-gold-50"
+          >
+            <Settings className="h-4 w-4 text-gold-700" />
+            <span className="hidden sm:inline">Store settings</span>
+          </Link>
           <div className="hidden sm:flex items-center gap-2 rounded-2xl border border-gold-200 bg-white/65 px-3 py-2 shadow-sm">
             <div
               className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold text-obsidian-900"

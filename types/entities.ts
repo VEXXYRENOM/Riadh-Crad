@@ -27,7 +27,7 @@ export interface Merchant extends MerchantRow {
 }
 
 export interface MerchantPublicProfile
-  extends Pick<MerchantRow, 'id' | 'name' | 'slug' | 'logo_url'> {
+  extends Pick<MerchantRow, 'id' | 'name' | 'slug' | 'logo_url' | 'cover_image_url' | 'description' | 'address' | 'welcome_message'> {
   /** Tier configuration surfaced to the PWA */
   tierThresholds: Record<LoyaltyTier, number>;
 }

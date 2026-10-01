@@ -30,6 +30,14 @@ export type MerchantRow = {
   name: string;
   slug: string;
   logo_url: string | null;
+  /** Wide storefront image shown on the public loyalty card. */
+  cover_image_url: string | null;
+  /** Merchant-controlled public profile details. */
+  description: string | null;
+  phone: string | null;
+  address: string | null;
+  welcome_message: string | null;
+  referral_reward_points: number;
   points_per_dinar: number;
   tier_bronze_min: number;
   tier_silver_min: number;
@@ -83,6 +91,18 @@ export type NfcEventRow = {
   status: NfcEventStatus;
   resolved_at: string | null;
   created_at: string;
+};
+
+export type MerchantReviewRow = {
+  id: string;
+  merchant_id: string;
+  customer_id: string;
+  rating: number;
+  comment: string | null;
+  /** Privacy-safe name, e.g. "Amine B." — never the full customer name. */
+  display_name: string;
+  created_at: string;
+  updated_at: string;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -141,6 +161,12 @@ export type Database = {
         Row: NfcEventRow;
         Insert: NfcEventInsert;
         Update: Partial<Pick<NfcEventRow, 'status' | 'resolved_at'>>;
+        Relationships: [];
+      };
+      merchant_reviews: {
+        Row: MerchantReviewRow;
+        Insert: Omit<MerchantReviewRow, 'id' | 'created_at' | 'updated_at' | 'display_name'>;
+        Update: Partial<Pick<MerchantReviewRow, 'rating' | 'comment'>>;
         Relationships: [];
       };
     };

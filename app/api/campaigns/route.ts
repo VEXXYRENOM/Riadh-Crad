@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, createSupabaseAdminClient } from '@/lib/supabase/server';
+import { sendCampaignPushNotifications } from '@/lib/push';
 
 interface CampaignRequestBody {
   merchantId: string;
@@ -62,6 +63,7 @@ export async function POST(request: NextRequest) {
       .eq('is_blocked', false);
 
     const recipientCount = cards?.length ?? 0;
+    const pushResult = await sendCampaignPushNotifications(merchantId, `/b/${merchant.slug}`, title, message);
 
     // Store campaign in DB for history
     const { data: campaign, error: insertErr } = await admin
@@ -87,6 +89,7 @@ export async function POST(request: NextRequest) {
       success:         true,
       campaign_id:     campaign?.id ?? null,
       recipient_count: recipientCount,
+      push_delivered:  pushResult.delivered,
       merchant_name:   merchant.name,
       message:         `Campaign sent to ${recipientCount} customer(s).`,
     });

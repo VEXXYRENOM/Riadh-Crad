@@ -23,14 +23,22 @@ import { TransactionLog } from '@/components/pwa/TransactionLog';
 import { PwaOnboarding }  from '@/components/pwa/PwaOnboarding';
 import { RedeemWidget }   from '@/components/pwa/RedeemWidget';
 import { WalletButton }   from '@/components/pwa/WalletButton';
+import { MerchantReviews } from '@/components/pwa/MerchantReviews';
+import { ReferralCard } from '@/components/pwa/ReferralCard';
+import { PushNotificationButton } from '@/components/pwa/PushNotificationButton';
 import type { TransactionListItem } from '@/types';
+import { getMerchantRatingSummary } from '@/services/review.service';
+import { getOrCreateReferralCode } from '@/services/referral.service';
 
 interface Props {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ ref?: string | string[] }>;
 }
 
-export default async function PwaPage({ params }: Props) {
+export default async function PwaPage({ params, searchParams }: Props) {
   const { slug } = await params;
+  const query = await searchParams;
+  const referralCode = typeof query.ref === 'string' ? query.ref : null;
 
   // ── Fetch merchant (public read) ─────────────────────────
   const merchant = await getMerchantBySlug(slug);
@@ -47,9 +55,14 @@ export default async function PwaPage({ params }: Props) {
     : null;
 
   // ── Fetch last 15 transactions ───────────────────────────
-  const rawTransactions = card
-    ? await getCardTransactions(card.id, 15)
-    : [];
+  const [rawTransactions, ratingSummary] = await Promise.all([
+    card ? getCardTransactions(card.id, 15) : [],
+    getMerchantRatingSummary(merchant.id),
+  ]);
+
+  const ownReferralCode = customer && card
+    ? await getOrCreateReferralCode(merchant.id, customer.id)
+    : null;
 
   const transactions: TransactionListItem[] = rawTransactions.map((tx) => ({
     id:              tx.id,
@@ -76,12 +89,21 @@ export default async function PwaPage({ params }: Props) {
         merchantName={merchant.name}
         merchantLogoUrl={merchant.logo_url}
         slug={slug}
+        referralCode={referralCode}
       />
     );
   }
 
   return (
     <main className="customer-shell flex flex-col items-center min-h-dvh px-4 pt-8 pb-12 gap-7 relative overflow-hidden">
+
+      {merchant.cover_image_url && (
+        <div className="absolute inset-x-0 top-0 h-44 overflow-hidden opacity-25" aria-hidden="true">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={merchant.cover_image_url} alt="" className="h-full w-full object-cover" />
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent to-[#FAF8F5]" />
+        </div>
+      )}
 
       {/* ── Ambient gold orb (decorative) ─────────────────── */}
       <div
@@ -116,6 +138,14 @@ export default async function PwaPage({ params }: Props) {
           <p className="text-gold-gradient-static text-xs font-semibold tracking-widest uppercase">
             RIADH CARD ✦ VIP Loyalty
           </p>
+          {merchant.description && (
+            <p className="mt-2 text-xs leading-relaxed text-obsidian-500">{merchant.description}</p>
+          )}
+          {merchant.welcome_message && (
+            <p className="mt-2 rounded-xl border border-gold-200 bg-white/70 px-3 py-2 text-xs font-medium text-obsidian-600 shadow-sm">
+              {merchant.welcome_message}
+            </p>
+          )}
         </div>
         <p className="text-obsidian-400 text-xs">
           Welcome back,{' '}
@@ -140,6 +170,21 @@ export default async function PwaPage({ params }: Props) {
 
       {/* ── Points Counter ────────────────────────────────── */}
       <PointsCounter points={card?.total_points ?? 0} />
+
+      <MerchantReviews
+        merchantId={merchant.id}
+        initialAverage={ratingSummary.average}
+        initialCount={ratingSummary.count}
+        initialReviews={ratingSummary.reviews.map(({ customer_id: _customerId, ...review }) => review)}
+        canReview={Boolean(customer && card)}
+      />
+
+      {ownReferralCode && (
+        <ReferralCard
+          referralUrl={`${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/b/${merchant.slug}?ref=${ownReferralCode}`}
+          rewardPoints={merchant.referral_reward_points}
+        />
+      )}
 
       {/* ── Divider ───────────────────────────────────────── */}
       <div className="divider-gold w-full max-w-sm">Tier Progress</div>
@@ -178,6 +223,8 @@ export default async function PwaPage({ params }: Props) {
         currentTier={card?.current_tier ?? 'BRONZE'}
         loyaltyUrl={`${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/b/${merchant.slug}`}
       />
+
+      <PushNotificationButton />
 
       {/* ── Transaction History ───────────────────────────── */}
       <TransactionLog transactions={transactions} />

@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createSupabaseAdminClient, createSupabaseServerClient } from '@/lib/supabase/server';
 import type { TransactionSource } from '@/types';
 
 interface AwardRequestBody {
@@ -82,6 +82,14 @@ export async function POST(request: NextRequest) {
     if (!result.success) {
       return NextResponse.json(result, { status: 422 });
     }
+
+    // Idempotent: the SQL function only processes a pending invitation.
+    const admin = await createSupabaseAdminClient();
+    const { error: referralError } = await admin.rpc('complete_referral_after_first_purchase', {
+      p_merchant_id: merchantId,
+      p_referred_customer_id: customerId,
+    });
+    if (referralError) console.error('[referral completion]', referralError.message);
 
     return NextResponse.json(result, { status: 200 });
   } catch (err) {

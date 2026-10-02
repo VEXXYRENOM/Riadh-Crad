@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     const devPhone = boundedText(body.devPhone, 30);
 
     if (!fullName || !isUuid(merchantId)) {
-      return NextResponse.json({ success: false, message: 'Missing fields' }, { status: 400 });
+      return NextResponse.json({ success: false, message: `Missing fields. Name: ${fullName}, Merchant: ${merchantId}` }, { status: 400 });
     }
 
     // ── Auth ─────────────────────────────────────────────────────────────────

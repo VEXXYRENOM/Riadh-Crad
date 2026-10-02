@@ -65,7 +65,17 @@ export function RewardsMenu({ merchantId, merchantSlug, merchantName, items, tot
           {items.map((item, index) => {
             const affordable = balance >= item.reward_points;
             return <article key={item.id} className="card-luxury animate-fade-up overflow-hidden p-5" style={{ animationDelay: `${Math.min(index * 0.06, 0.3)}s` }}>
-              <div className="flex gap-4"><div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gold-100 text-gold-700"><UtensilsCrossed className="h-5 w-5" /></div><div className="min-w-0 flex-1"><div className="flex items-start justify-between gap-3"><h2 className="font-bold text-obsidian-900">{item.name}</h2><span className="shrink-0 text-sm font-bold text-obsidian-800">{Number(item.price_tnd).toFixed(3)} TND</span></div>{item.description && <p className="mt-1 text-sm leading-relaxed text-obsidian-500">{item.description}</p>}{item.ingredients.length > 0 && <p className="mt-3 text-xs text-obsidian-400">{item.ingredients.join(' · ')}</p>}</div></div>
+              <div className="flex gap-4">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gold-100 text-gold-700">
+                  {item.image_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={item.image_url} alt={item.name} className="h-full w-full object-cover" />
+                  ) : (
+                    <UtensilsCrossed className="h-5 w-5" />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1"><div className="flex items-start justify-between gap-3"><h2 className="font-bold text-obsidian-900">{item.name}</h2><span className="shrink-0 text-sm font-bold text-obsidian-800">{Number(item.price_tnd).toFixed(3)} TND</span></div>{item.description && <p className="mt-1 text-sm leading-relaxed text-obsidian-500">{item.description}</p>}{item.ingredients.length > 0 && <p className="mt-3 text-xs text-obsidian-400">{item.ingredients.join(' · ')}</p>}</div>
+              </div>
               <div className="mt-4 flex items-center justify-between gap-3 border-t border-gold-100 pt-4"><div className="inline-flex items-center gap-1.5 rounded-full bg-gold-50 px-3 py-1.5 text-xs font-bold text-gold-800"><Sparkles className="h-3.5 w-3.5" /> {item.reward_points.toLocaleString()} points</div><button type="button" disabled={!canRedeem || !affordable} onClick={() => { setSelected(item); setFeedback(null); }} className="inline-flex items-center gap-1.5 rounded-xl bg-obsidian-900 px-3 py-2 text-xs font-bold text-gold-100 transition hover:bg-obsidian-800 disabled:cursor-not-allowed disabled:opacity-40"><Gift className="h-3.5 w-3.5" /> {!canRedeem ? 'Sign in' : affordable ? 'Redeem' : `Need ${(item.reward_points - balance).toLocaleString()} more`}</button></div>
             </article>;
           })}

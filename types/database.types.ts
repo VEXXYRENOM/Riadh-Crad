@@ -119,6 +119,7 @@ export type MenuItemRow = {
   merchant_id: string;
   name: string;
   description: string | null;
+  image_url: string | null;
   ingredients: string[];
   price_tnd: number;
   reward_points: number;

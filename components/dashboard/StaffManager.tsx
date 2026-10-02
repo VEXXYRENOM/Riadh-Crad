@@ -1,6 +1,7 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, useState, useRef, useEffect } from 'react';
+import { ChevronDown, Check } from 'lucide-react';
 
 type StaffMember = {
   id: string;
@@ -17,6 +18,19 @@ export function StaffManager({ initialStaff }: { initialStaff: StaffMember[] }) 
   const [role, setRole] = useState<StaffMember['role']>('CASHIER');
   const [message, setMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   async function invite(event: FormEvent) {
     event.preventDefault();
@@ -46,7 +60,39 @@ export function StaffManager({ initialStaff }: { initialStaff: StaffMember[] }) 
     <section className="card-luxury p-6"><p className="label-gold mb-1">Team access</p><h1 className="heading-luxury text-2xl text-obsidian-900">Cashiers and managers</h1><p className="mt-2 text-sm text-obsidian-500">Cashiers can confirm purchases and award points. They cannot change store settings, campaigns, rewards, or team access.</p>
       <form onSubmit={invite} className="mt-5 grid gap-3 md:grid-cols-[1fr_160px_auto]">
         <input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="cashier@example.com" className="input-gold" />
-        <select value={role} onChange={(event) => setRole(event.target.value as StaffMember['role'])} className="input-gold"><option value="CASHIER">Cashier</option><option value="MANAGER">Manager</option></select>
+        
+        <div className="relative" ref={dropdownRef}>
+          <button
+            type="button"
+            onClick={() => setDropdownOpen(!dropdownOpen)}
+            className="input-gold flex w-full items-center justify-between text-left"
+          >
+            <span>{role === 'CASHIER' ? 'Cashier' : 'Manager'}</span>
+            <ChevronDown className="h-4 w-4 text-obsidian-500" />
+          </button>
+          
+          {dropdownOpen && (
+            <div className="absolute left-0 top-full z-10 mt-1 w-full overflow-hidden rounded-xl border border-gold-100 bg-white shadow-gold-lg glass-card">
+              <button
+                type="button"
+                onClick={() => { setRole('CASHIER'); setDropdownOpen(false); }}
+                className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium hover:bg-gold-50/50 transition-colors"
+              >
+                Cashier
+                {role === 'CASHIER' && <Check className="h-4 w-4 text-gold-metallic" />}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setRole('MANAGER'); setDropdownOpen(false); }}
+                className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium hover:bg-gold-50/50 transition-colors"
+              >
+                Manager
+                {role === 'MANAGER' && <Check className="h-4 w-4 text-gold-metallic" />}
+              </button>
+            </div>
+          )}
+        </div>
+        
         <button type="submit" disabled={saving} className="btn-gold disabled:opacity-60">{saving ? 'Saving…' : 'Invite staff'}</button>
       </form>
       {message && <p className="mt-3 text-sm text-obsidian-600">{message}</p>}
@@ -56,3 +102,4 @@ export function StaffManager({ initialStaff }: { initialStaff: StaffMember[] }) 
     </section>
   </div>;
 }
+

@@ -5,6 +5,7 @@ type MenuPayload = {
   id?: unknown;
   name?: unknown;
   description?: unknown;
+  image_url?: unknown;
   ingredients?: unknown;
   price_tnd?: unknown;
   reward_points?: unknown;
@@ -45,6 +46,7 @@ function parseMenuPayload(body: MenuPayload) {
   return {
     name,
     description: asText(body.description, 500),
+    image_url: asText(body.image_url, 1000),
     ingredients,
     price_tnd: Math.round(price * 1000) / 1000,
     reward_points: points,

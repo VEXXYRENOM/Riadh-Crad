@@ -2,5 +2,7 @@
 .next/
 .npm-cache/
 .env*.local
+riadh-card-*.json
+*-service-account*.json
 .DS_Store
 Thumbs.db

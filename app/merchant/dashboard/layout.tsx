@@ -6,10 +6,10 @@
 
 import { redirect } from 'next/navigation';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { getMerchantByOwnerId } from '@/services/merchant.service';
+import { getMerchantAccessByUserId } from '@/services/merchant-access.service';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Settings } from 'lucide-react';
+import { Settings, UtensilsCrossed, Users } from 'lucide-react';
 
 export const metadata: Metadata = {
   title: 'Dashboard | RIADH CARD',
@@ -22,8 +22,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   if (!user) redirect('/merchant/login');
 
-  const merchant = await getMerchantByOwnerId(user.id);
-  if (!merchant) redirect('/merchant/setup');
+  const access = await getMerchantAccessByUserId(user.id);
+  if (!access) redirect('/merchant/login?error=No%20merchant%20access');
+  const { merchant, role } = access;
 
   return (
     <div className="dashboard-shell min-h-screen flex flex-col">
@@ -45,13 +46,21 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </div>
 
         <div className="flex items-center gap-3">
-          <Link
+          {role === 'OWNER' && <Link
+            href="/merchant/dashboard/menu"
+            className="inline-flex h-9 items-center gap-2 rounded-xl border border-gold-200 bg-white/70 px-3 text-xs font-semibold text-obsidian-700 transition hover:border-gold-400 hover:bg-gold-50"
+          >
+            <UtensilsCrossed className="h-4 w-4 text-gold-700" />
+            <span className="hidden sm:inline">Menu &amp; rewards</span>
+          </Link>}
+          {role === 'OWNER' && <Link
             href="/merchant/dashboard/settings"
             className="inline-flex h-9 items-center gap-2 rounded-xl border border-gold-200 bg-white/70 px-3 text-xs font-semibold text-obsidian-700 transition hover:border-gold-400 hover:bg-gold-50"
           >
             <Settings className="h-4 w-4 text-gold-700" />
             <span className="hidden sm:inline">Store settings</span>
-          </Link>
+          </Link>}
+          {role === 'OWNER' && <Link href="/merchant/dashboard/team" className="inline-flex h-9 items-center gap-2 rounded-xl border border-gold-200 bg-white/70 px-3 text-xs font-semibold text-obsidian-700 transition hover:border-gold-400 hover:bg-gold-50"><Users className="h-4 w-4 text-gold-700" /><span className="hidden sm:inline">Team</span></Link>}
           <div className="hidden sm:flex items-center gap-2 rounded-2xl border border-gold-200 bg-white/65 px-3 py-2 shadow-sm">
             <div
               className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold text-obsidian-900"
@@ -59,7 +68,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
             >
               {merchant.name.charAt(0)}
             </div>
-            <div className="leading-tight"><span className="block text-[9px] font-medium uppercase tracking-wider text-obsidian-400">Current venue</span><span className="text-xs font-semibold text-obsidian-700">{merchant.name}</span></div>
+            <div className="leading-tight"><span className="block text-[9px] font-medium uppercase tracking-wider text-obsidian-400">{role === 'OWNER' ? 'Current venue' : role}</span><span className="text-xs font-semibold text-obsidian-700">{merchant.name}</span></div>
           </div>
         </div>
       </nav>

@@ -8,7 +8,8 @@
 
 import { redirect }  from 'next/navigation';
 import { createSupabaseServerClient }  from '@/lib/supabase/server';
-import { getMerchantByOwnerId, getMerchantDashboardSummary } from '@/services/merchant.service';
+import { getMerchantDashboardSummary } from '@/services/merchant.service';
+import { getMerchantAccessByUserId } from '@/services/merchant-access.service';
 import { getMerchantLoyaltyCards }     from '@/services/loyalty.service';
 
 import { KpiCards }        from '@/components/dashboard/KpiCards';
@@ -16,7 +17,7 @@ import { RecentMembers }   from '@/components/dashboard/RecentMembers';
 import { DashboardClient } from '@/components/dashboard/DashboardClient';
 import type { MemberRow }  from '@/components/dashboard/RecentMembers';
 import type { CustomerRow, LoyaltyCardRow } from '@/types';
-import { ExternalLink, Megaphone, QrCode, Radio, Settings } from 'lucide-react';
+import { ExternalLink, Megaphone, Nfc, QrCode, Radio, Settings, UtensilsCrossed } from 'lucide-react';
 
 export default async function DashboardPage() {
   // ── Auth guard ───────────────────────────────────────────
@@ -24,10 +25,27 @@ export default async function DashboardPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/merchant/login');
 
-  const merchant = await getMerchantByOwnerId(user.id);
-  if (!merchant) {
-    redirect('/merchant/setup');
+  const access = await getMerchantAccessByUserId(user.id);
+  if (!access) {
+    redirect('/merchant/login?error=No%20merchant%20access');
     return null; // unreachable — satisfies TypeScript narrowing
+  }
+  const { merchant, role } = access;
+
+  // A cashier only needs the live NFC station. Keeping owner analytics and the
+  // complete member directory out of this view is a deliberate privacy boundary.
+  if (role === 'CASHIER') {
+    return (
+      <div className="flex flex-col gap-6">
+        <section className="card-luxury p-7 text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gold-100 text-gold-700"><Nfc className="h-7 w-7" /></div>
+          <p className="label-gold mt-5">Cashier station</p>
+          <h1 className="heading-luxury mt-1 text-3xl text-obsidian-900">Ready for customer taps</h1>
+          <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-obsidian-500">Keep this screen open. When a customer taps NFC or scans their code, the confirmation panel appears here instantly.</p>
+        </section>
+        <DashboardClient merchant={merchant} />
+      </div>
+    );
   }
 
   // ── Fetch data ───────────────────────────────────────────
@@ -89,8 +107,7 @@ export default async function DashboardPage() {
           <div className="flex flex-wrap items-center gap-2">
             <span className="mr-1 text-[10px] font-bold uppercase tracking-[0.14em] text-obsidian-400">Quick actions</span>
             <a href={`/b/${merchant.slug}`} className="inline-flex items-center gap-1.5 rounded-xl border border-gold-200 bg-white/80 px-3 py-2 text-xs font-semibold text-obsidian-700 transition hover:border-gold-400 hover:bg-gold-50"><ExternalLink className="h-3.5 w-3.5 text-gold-700" /> Customer card</a>
-            <a href="/merchant/dashboard/campaigns" className="inline-flex items-center gap-1.5 rounded-xl border border-gold-200 bg-white/80 px-3 py-2 text-xs font-semibold text-obsidian-700 transition hover:border-gold-400 hover:bg-gold-50"><Megaphone className="h-3.5 w-3.5 text-gold-700" /> Campaigns</a>
-            <a href="/merchant/dashboard/settings" className="inline-flex items-center gap-1.5 rounded-xl border border-gold-200 bg-white/80 px-3 py-2 text-xs font-semibold text-obsidian-700 transition hover:border-gold-400 hover:bg-gold-50"><Settings className="h-3.5 w-3.5 text-gold-700" /> Store profile</a>
+            {role === 'OWNER' && <><a href="/merchant/dashboard/campaigns" className="inline-flex items-center gap-1.5 rounded-xl border border-gold-200 bg-white/80 px-3 py-2 text-xs font-semibold text-obsidian-700 transition hover:border-gold-400 hover:bg-gold-50"><Megaphone className="h-3.5 w-3.5 text-gold-700" /> Campaigns</a><a href="/merchant/dashboard/settings" className="inline-flex items-center gap-1.5 rounded-xl border border-gold-200 bg-white/80 px-3 py-2 text-xs font-semibold text-obsidian-700 transition hover:border-gold-400 hover:bg-gold-50"><Settings className="h-3.5 w-3.5 text-gold-700" /> Store profile</a><a href="/merchant/dashboard/menu" className="inline-flex items-center gap-1.5 rounded-xl border border-gold-200 bg-white/80 px-3 py-2 text-xs font-semibold text-obsidian-700 transition hover:border-gold-400 hover:bg-gold-50"><UtensilsCrossed className="h-3.5 w-3.5 text-gold-700" /> Menu &amp; rewards</a></>}
             <a href="/merchant/dashboard/qr" className="inline-flex items-center gap-1.5 rounded-xl bg-obsidian-900 px-3 py-2 text-xs font-bold text-gold-200 shadow-[0_8px_16px_-10px_rgba(47,31,14,.7)] transition hover:-translate-y-0.5 hover:bg-obsidian-800"><QrCode className="h-3.5 w-3.5" /> Set up NFC &amp; QR</a>
           </div>
         </div>

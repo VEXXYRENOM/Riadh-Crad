@@ -7,6 +7,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient, createSupabaseServerClient } from '@/lib/supabase/server';
+import { syncGoogleWalletLoyaltyCard } from '@/lib/google-wallet';
+import { ApiInputError, boundedText, consumeRateLimit, isUuid, readJsonBody } from '@/lib/api-safety';
 
 interface RedeemRequestBody {
   merchantId: string;
@@ -16,10 +18,10 @@ interface RedeemRequestBody {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as RedeemRequestBody;
+    const body = await readJsonBody<RedeemRequestBody>(request);
     const { merchantId, points, note } = body;
 
-    if (!merchantId || !points || points <= 0) {
+    if (!isUuid(merchantId) || !Number.isSafeInteger(points) || points <= 0 || points > 1_000_000) {
       return NextResponse.json(
         { success: false, message: 'Missing or invalid fields: merchantId, points' },
         { status: 400 },
@@ -30,6 +32,14 @@ export async function POST(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json({ success: false, message: 'Not authenticated. Please register first.' }, { status: 401 });
+    }
+
+    const limit = await consumeRateLimit(`redeem:${merchantId}:${user.id}`, 20, 3600);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { success: false, message: limit.unavailable ? 'Service protection is unavailable. Please retry shortly.' : 'Too many redemption requests. Please retry later.' },
+        { status: limit.unavailable ? 503 : 429 },
+      );
     }
 
     const admin = await createSupabaseAdminClient();
@@ -70,7 +80,7 @@ export async function POST(request: NextRequest) {
       p_merchant_id: merchantId,
       p_customer_id: customerId,
       p_points:      points,
-      p_note:        note ?? `Redeemed ${points} points`,
+      p_note:        boundedText(note, 240) || `Redeemed ${points} points`,
     });
 
     if (error) {
@@ -92,8 +102,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(result, { status: 422 });
     }
 
+    void syncGoogleWalletLoyaltyCard(merchantId, customerId);
+
     return NextResponse.json(result, { status: 200 });
   } catch (err) {
+    if (err instanceof ApiInputError) {
+      return NextResponse.json({ success: false, message: err.message }, { status: 400 });
+    }
     console.error('[POST /api/loyalty/redeem]', err);
     return NextResponse.json(
       { success: false, message: 'Internal server error' },

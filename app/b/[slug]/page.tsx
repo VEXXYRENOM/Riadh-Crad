@@ -21,11 +21,12 @@ import { TierProgress }   from '@/components/pwa/TierProgress';
 import { NfcTrigger }     from '@/components/pwa/NfcTrigger';
 import { TransactionLog } from '@/components/pwa/TransactionLog';
 import { PwaOnboarding }  from '@/components/pwa/PwaOnboarding';
-import { RedeemWidget }   from '@/components/pwa/RedeemWidget';
 import { WalletButton }   from '@/components/pwa/WalletButton';
 import { MerchantReviews } from '@/components/pwa/MerchantReviews';
 import { ReferralCard } from '@/components/pwa/ReferralCard';
 import { PushNotificationButton } from '@/components/pwa/PushNotificationButton';
+import { ProximityReminder } from '@/components/pwa/ProximityReminder';
+import Link from 'next/link';
 import type { TransactionListItem } from '@/types';
 import { getMerchantRatingSummary } from '@/services/review.service';
 import { getOrCreateReferralCode } from '@/services/referral.service';
@@ -154,6 +155,7 @@ export default async function PwaPage({ params, searchParams }: Props) {
           </span>{' '}
           👋
         </p>
+        <div className="mt-1 flex flex-wrap justify-center gap-2"><Link href="/wallet" className="rounded-full border border-gold-200 bg-white/80 px-3 py-1.5 text-[11px] font-bold text-obsidian-700 shadow-sm transition hover:border-gold-400">👛 My RIADH Wallet</Link><Link href="/discover" className="rounded-full border border-gold-200 bg-white/80 px-3 py-1.5 text-[11px] font-bold text-obsidian-700 shadow-sm transition hover:border-gold-400">🧭 Discover stores</Link></div>
       </header>
 
       {/* ── VIP Card Mockup ───────────────────────────────── */}
@@ -206,16 +208,16 @@ export default async function PwaPage({ params, searchParams }: Props) {
         customerName={customer.full_name}
       />
 
-      {/* ── Redeem Points ─────────────────────────────────── */}
-      <RedeemWidget
-        merchantId={merchant.id}
-        merchantName={merchant.name}
-        totalPoints={card?.total_points ?? 0}
-        pointsPerDinar={merchant.points_per_dinar}
-      />
+      <Link
+        href={`/b/${merchant.slug}/menu`}
+        className="w-full max-w-sm rounded-card border border-gold-200 bg-white/80 px-5 py-4 text-center text-sm font-bold text-obsidian-800 shadow-sm transition hover:-translate-y-0.5 hover:border-gold-400 hover:bg-gold-50"
+      >
+        🍽️ View menu &amp; redeem product rewards
+      </Link>
 
       {/* ── Add to Wallet ─────────────────────────────────── */}
       <WalletButton
+        merchantId={merchant.id}
         merchantName={merchant.name}
         merchantSlug={merchant.slug}
         customerName={customer.full_name}
@@ -225,6 +227,7 @@ export default async function PwaPage({ params, searchParams }: Props) {
       />
 
       <PushNotificationButton />
+      <ProximityReminder merchantName={merchant.name} merchantSlug={merchant.slug} latitude={merchant.latitude} longitude={merchant.longitude} enabled={merchant.proximity_enabled} radiusMetres={merchant.proximity_radius_m} />
 
       {/* ── Transaction History ───────────────────────────── */}
       <TransactionLog transactions={transactions} />

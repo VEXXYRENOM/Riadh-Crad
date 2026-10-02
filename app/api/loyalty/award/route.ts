@@ -7,6 +7,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient, createSupabaseServerClient } from '@/lib/supabase/server';
+import { syncGoogleWalletLoyaltyCard } from '@/lib/google-wallet';
+import { ApiInputError, boundedText, consumeRateLimit, isUuid, readJsonBody } from '@/lib/api-safety';
+import { canAwardPoints } from '@/services/merchant-access.service';
 import type { TransactionSource } from '@/types';
 
 interface AwardRequestBody {
@@ -19,50 +22,53 @@ interface AwardRequestBody {
 }
 
 export async function POST(request: NextRequest) {
-  console.log('[AWARD API] Request received');
   try {
-    const body = (await request.json()) as AwardRequestBody;
-    console.log('[AWARD API] Body parsed:', body);
+    const body = await readJsonBody<AwardRequestBody>(request);
     const { merchantId, customerId, amountTnd, nfcEventId, source, note } = body;
 
-    if (!merchantId || !customerId || !amountTnd) {
+    if (!isUuid(merchantId) || !isUuid(customerId) || !Number.isFinite(amountTnd) || amountTnd <= 0 || amountTnd > 100_000) {
       return NextResponse.json(
-        { success: false, message: 'Missing required fields: merchantId, customerId, amountTnd' },
+        { success: false, message: 'Invalid merchant, customer, or purchase amount.' },
         { status: 400 },
       );
     }
+    if (nfcEventId !== undefined && nfcEventId !== null && !isUuid(nfcEventId)) {
+      return NextResponse.json({ success: false, message: 'Invalid NFC event.' }, { status: 400 });
+    }
+    if (source && !['CASHIER', 'NFC', 'MANUAL', 'ADJUSTMENT'].includes(source)) {
+      return NextResponse.json({ success: false, message: 'Invalid transaction source.' }, { status: 400 });
+    }
 
     const supabase = await createSupabaseServerClient();
-    console.log('[AWARD API] Supabase client created');
 
     // Verify session
     const { data: { user }, error: authErr } = await supabase.auth.getUser();
-    console.log('[AWARD API] Session verified. User ID:', user?.id, 'Error:', authErr?.message);
     if (authErr || !user) {
       return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('id', merchantId)
-      .eq('owner_id', user.id)
-      .maybeSingle();
-    if (!merchant) {
+    const limit = await consumeRateLimit(`award:${merchantId}:${user.id}`, 240, 60);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { success: false, message: limit.unavailable ? 'Service protection is unavailable. Please retry shortly.' : 'Too many award requests. Please retry in one minute.' },
+        { status: limit.unavailable ? 503 : 429 },
+      );
+    }
+
+    if (!await canAwardPoints(merchantId, user.id)) {
       return NextResponse.json({ success: false, message: 'Merchant not found or access denied.' }, { status: 403 });
     }
 
     // Call atomic RPC
-    console.log('[AWARD API] Calling award_points RPC...');
-    const { data, error } = await supabase.rpc('award_points', {
+    const admin = await createSupabaseAdminClient();
+    const { data, error } = await admin.rpc('award_points', {
       p_merchant_id:  merchantId,
       p_customer_id:  customerId,
       p_amount_tnd:   amountTnd,
       p_nfc_event_id: nfcEventId ?? null,
       p_source:       source ?? 'CASHIER',
-      p_note:         note   ?? null,
+      p_note:         boundedText(note, 240) || null,
     });
-    console.log('[AWARD API] RPC finished. Data:', data, 'Error:', error?.message);
 
     if (error) {
       return NextResponse.json(
@@ -84,15 +90,22 @@ export async function POST(request: NextRequest) {
     }
 
     // Idempotent: the SQL function only processes a pending invitation.
-    const admin = await createSupabaseAdminClient();
     const { error: referralError } = await admin.rpc('complete_referral_after_first_purchase', {
       p_merchant_id: merchantId,
       p_referred_customer_id: customerId,
     });
     if (referralError) console.error('[referral completion]', referralError.message);
 
+    // Best effort: the points transaction is already committed atomically in Supabase.
+    // A temporary Google outage must never make the cashier operation fail.
+    // A bounded background queue prevents an external Wallet slowdown from delaying checkout.
+    void syncGoogleWalletLoyaltyCard(merchantId, customerId);
+
     return NextResponse.json(result, { status: 200 });
   } catch (err) {
+    if (err instanceof ApiInputError) {
+      return NextResponse.json({ success: false, message: err.message }, { status: 400 });
+    }
     console.error('[POST /api/loyalty/award]', err);
     return NextResponse.json(
       { success: false, message: 'Internal server error' },

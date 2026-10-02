@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { syncGoogleWalletMerchantClass } from '@/lib/google-wallet';
 
 const MAX_TEXT_LENGTH = 500;
 
@@ -13,6 +14,10 @@ type ProfilePayload = {
   tier_silver_min?: unknown;
   tier_gold_min?: unknown;
   tier_platinum_min?: unknown;
+  latitude?: unknown;
+  longitude?: unknown;
+  proximity_enabled?: unknown;
+  proximity_radius_m?: unknown;
 };
 
 function text(value: unknown, max = MAX_TEXT_LENGTH) {
@@ -24,6 +29,12 @@ function text(value: unknown, max = MAX_TEXT_LENGTH) {
 function positiveNumber(value: unknown) {
   const number = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(number) && number > 0 ? number : null;
+}
+
+function coordinate(value: unknown, minimum: number, maximum: number) {
+  if (value === null || value === '' || value === undefined) return null;
+  const number = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(number) && number >= minimum && number <= maximum ? number : undefined;
 }
 
 export async function PATCH(request: NextRequest) {
@@ -39,8 +50,14 @@ export async function PATCH(request: NextRequest) {
     const gold = positiveNumber(body.tier_gold_min);
     const platinum = positiveNumber(body.tier_platinum_min);
     const name = text(body.name, 100);
+    const latitude = coordinate(body.latitude, -90, 90);
+    const longitude = coordinate(body.longitude, -180, 180);
+    const radius = body.proximity_radius_m === undefined ? 100 : Math.round(Number(body.proximity_radius_m));
+    const proximityEnabled = body.proximity_enabled === undefined ? true : body.proximity_enabled === true;
 
-    if (!name || !pointsPerDinar || !silver || !gold || !platinum || !(silver < gold && gold < platinum)) {
+    if (!name || !pointsPerDinar || !silver || !gold || !platinum || !(silver < gold && gold < platinum)
+      || latitude === undefined || longitude === undefined || (latitude === null) !== (longitude === null)
+      || !Number.isInteger(radius) || radius < 50 || radius > 1000) {
       return NextResponse.json({
         success: false,
         message: 'Please enter a store name, a positive points rate, and ascending tier thresholds.',
@@ -59,6 +76,10 @@ export async function PATCH(request: NextRequest) {
         tier_silver_min: Math.round(silver),
         tier_gold_min: Math.round(gold),
         tier_platinum_min: Math.round(platinum),
+        latitude,
+        longitude,
+        proximity_enabled: proximityEnabled,
+        proximity_radius_m: radius,
       })
       .eq('owner_id', user.id)
       .select('*')
@@ -67,6 +88,9 @@ export async function PATCH(request: NextRequest) {
     if (error || !merchant) {
       return NextResponse.json({ success: false, message: error?.message ?? 'Store profile was not found.' }, { status: 400 });
     }
+
+    // The profile write is authoritative; a temporary Google outage must not block it.
+    void syncGoogleWalletMerchantClass(merchant.id);
 
     return NextResponse.json({ success: true, merchant });
   } catch (error) {

@@ -19,9 +19,11 @@ interface PwaOnboardingProps {
 
 type Step = 'PHONE' | 'NAME' | 'OTP' | 'LOADING';
 
-// TODO: Re-enable OTP verification when SMS provider is ready.
-// Set this to false to restore full phone verification flow.
-const SKIP_OTP = true;
+// ⚠️ DEV MODE: OTP verification is temporarily bypassed.
+// Remove this flag and restore handlePhoneSubmit to re-enable SMS verification.
+// Explicit local-only opt-in. This can never be enabled in a production build.
+const SKIP_OTP_FOR_DEV = process.env.NODE_ENV !== 'production'
+  && process.env.NEXT_PUBLIC_SKIP_OTP_FOR_DEV === 'true';
 
 export function PwaOnboarding({ merchantId, merchantName, merchantLogoUrl, slug, referralCode }: PwaOnboardingProps) {
   const [step, setStep]         = useState<Step>('PHONE');
@@ -38,9 +40,8 @@ export function PwaOnboarding({ merchantId, merchantName, merchantLogoUrl, slug,
     if (!phone.trim()) return;
     setError(null);
 
-    // TODO: Remove SKIP_OTP block and restore OTP flow when SMS is ready.
-    if (SKIP_OTP) {
-      // Bypass OTP — skip directly to name entry
+    // ⚠️ DEV: Skip OTP — go directly to name step
+    if (SKIP_OTP_FOR_DEV) {
       setStep('NAME');
       return;
     }
@@ -84,10 +85,13 @@ export function PwaOnboarding({ merchantId, merchantName, merchantLogoUrl, slug,
     setStep('LOADING');
 
     startTransition(async () => {
-      // Get the current session token to send as Authorization header
-      // (cookie may not be set yet right after OTP verification)
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
+      let token: string | undefined;
+
+      if (!SKIP_OTP_FOR_DEV) {
+        // Normal flow: get session token after OTP verification
+        const { data: { session } } = await supabase.auth.getSession();
+        token = session?.access_token;
+      }
 
       const res = await fetch('/api/customers/upsert', {
         method: 'POST',
@@ -95,13 +99,13 @@ export function PwaOnboarding({ merchantId, merchantName, merchantLogoUrl, slug,
           'Content-Type': 'application/json',
           ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
         },
+        // ⚠️ DEV: send phone in body so the API can create the user server-side
         body: JSON.stringify({
-            fullName,
-            merchantId,
-            referralCode,
-            // Included for dev bypass (SKIP_OTP=true) — server reads phone directly
-            ...(SKIP_OTP ? { phone: phone.trim() } : {}),
-          }),
+          fullName,
+          merchantId,
+          referralCode,
+          ...(SKIP_OTP_FOR_DEV ? { devPhone: phone.trim() } : {}),
+        }),
       });
 
       if (!res.ok) {

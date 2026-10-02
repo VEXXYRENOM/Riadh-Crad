@@ -6,64 +6,37 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, createSupabaseAdminClient } from '@/lib/supabase/server';
+import { ApiInputError, boundedText, consumeRateLimit, isUuid, readJsonBody } from '@/lib/api-safety';
 
 interface UpsertBody {
-  fullName:   string;
-  merchantId: string;
+  fullName:     string;
+  merchantId:   string;
   referralCode?: string;
+  // ⚠️ DEV only — sent when SKIP_OTP_FOR_DEV is active on the client
+  devPhone?:    string;
 }
+
+// Never allow a client to bypass OTP in a production deployment.
+const SKIP_OTP_FOR_DEV = process.env.NODE_ENV !== 'production'
+  && process.env.NEXT_PUBLIC_SKIP_OTP_FOR_DEV === 'true';
 
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as UpsertBody;
-    const { fullName, merchantId, referralCode } = body;
+    const body = await readJsonBody<UpsertBody>(request);
+    const fullName = boundedText(body.fullName, 80);
+    const merchantId = body.merchantId;
+    const referralCode = body.referralCode;
+    const devPhone = boundedText(body.devPhone, 30);
 
-    if (!fullName?.trim() || !merchantId) {
+    if (!fullName || !isUuid(merchantId)) {
       return NextResponse.json({ success: false, message: 'Missing fields' }, { status: 400 });
     }
 
-    // ── DEV BYPASS: Skip OTP phone session check ─────────────────────
-    // TODO: Remove this block when SMS provider is ready and SKIP_OTP_VERIFICATION=false
-    if (process.env.SKIP_OTP_VERIFICATION === 'true') {
-      const phone = (body as UpsertBody & { phone?: string }).phone;
-      if (!phone) {
-        return NextResponse.json({ success: false, message: 'Phone number is required in dev bypass mode.' }, { status: 400 });
-      }
-      const admin = await createSupabaseAdminClient();
-
-      const { data: existingByPhone } = await admin
-        .from('customers')
-        .select('id, auth_uid')
-        .eq('phone', phone)
-        .maybeSingle();
-
-      const customerId = existingByPhone?.id;
-      const customerWrite = customerId
-        ? admin.from('customers').update({ full_name: fullName.trim() }).eq('id', customerId).select('id').single()
-        : admin.from('customers').insert({ phone, full_name: fullName.trim() }).select('id').single();
-      const { data: customer, error } = await customerWrite;
-
-      if (error || !customer) {
-        return NextResponse.json({ success: false, message: error?.message ?? 'Failed to create customer' }, { status: 500 });
-      }
-
-      await admin
-        .from('loyalty_cards')
-        .upsert(
-          { customer_id: customer.id, merchant_id: merchantId, total_points: 0, lifetime_points: 0 },
-          { onConflict: 'customer_id, merchant_id', ignoreDuplicates: true }
-        );
-
-      return NextResponse.json({ success: true, customerId: customer.id }, { status: 200 });
-    }
-    // ── END DEV BYPASS ───────────────────────────────────────────────
-
-    // Primary: try cookie-based session (standard SSR flow)
+    // ── Auth ─────────────────────────────────────────────────────────────────
     const supabase = await createSupabaseServerClient();
     let { data: { user }, error: authError } = await supabase.auth.getUser();
 
-    // Fallback: if no cookie session, try Authorization Bearer token
-    // (happens when browser OTP client stores session in memory before cookie sync)
+    // Fallback: Authorization Bearer token
     if (!user || authError) {
       const authHeader = request.headers.get('Authorization');
       if (authHeader?.startsWith('Bearer ')) {
@@ -76,10 +49,34 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const phone = user?.phone;
-    if (authError || !user || !phone) {
+    // ⚠️ DEV MODE: bypass phone auth — accept phone from request body directly
+    let phone = user?.phone;
+    if (SKIP_OTP_FOR_DEV && devPhone) {
+      phone = devPhone;
+      // create a synthetic auth uid for dev so the admin client can still insert
+      if (!user) {
+        // use admin to create a temp anonymous user
+        const admin = await createSupabaseAdminClient();
+        const { data: anonUser } = await admin.auth.admin.createUser({
+          phone: devPhone,
+          phone_confirm: true,
+          user_metadata: { dev_bypass: true },
+        });
+        if (anonUser?.user) user = anonUser.user;
+      }
+    }
+
+    if (!phone || !user) {
       console.error('[upsert] no authenticated user. authError:', authError?.message);
       return NextResponse.json({ success: false, message: 'A verified phone session is required.' }, { status: 401 });
+    }
+
+    const limit = await consumeRateLimit(`join:${merchantId}:${user.id}`, 10, 3600);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { success: false, message: limit.unavailable ? 'Service protection is unavailable. Please retry shortly.' : 'Too many registration requests. Please retry later.' },
+        { status: limit.unavailable ? 503 : 429 },
+      );
     }
 
     const admin = await createSupabaseAdminClient();
@@ -104,8 +101,8 @@ export async function POST(request: NextRequest) {
 
     const customerId = existingByAuth?.id ?? existingByPhone?.id;
     const customerWrite = customerId
-      ? admin.from('customers').update({ auth_uid: user.id, full_name: fullName.trim() }).eq('id', customerId).select('id').single()
-      : admin.from('customers').insert({ phone, auth_uid: user.id, full_name: fullName.trim() }).select('id').single();
+      ? admin.from('customers').update({ auth_uid: user.id, full_name: fullName }).eq('id', customerId).select('id').single()
+      : admin.from('customers').insert({ phone, auth_uid: user.id, full_name: fullName }).select('id').single();
     const { data: customer, error } = await customerWrite;
 
     if (error || !customer) {
@@ -150,6 +147,9 @@ export async function POST(request: NextRequest) {
     
     return NextResponse.json({ success: true, customerId: customer.id }, { status: 200 });
   } catch (err) {
+    if (err instanceof ApiInputError) {
+      return NextResponse.json({ success: false, message: err.message }, { status: 400 });
+    }
     console.error('[POST /api/customers/upsert]', err);
     return NextResponse.json({ success: false, message: 'Internal server error' }, { status: 500 });
   }

@@ -38,6 +38,10 @@ export type MerchantRow = {
   address: string | null;
   welcome_message: string | null;
   referral_reward_points: number;
+  latitude: number | null;
+  longitude: number | null;
+  proximity_enabled: boolean;
+  proximity_radius_m: number;
   points_per_dinar: number;
   tier_bronze_min: number;
   tier_silver_min: number;
@@ -106,6 +110,25 @@ export type MerchantReviewRow = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Menu
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** A merchant-controlled product displayed in the customer rewards menu. */
+export type MenuItemRow = {
+  id: string;
+  merchant_id: string;
+  name: string;
+  description: string | null;
+  ingredients: string[];
+  price_tnd: number;
+  reward_points: number;
+  is_available: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Insert / Update payloads (Supabase postgrest types)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -117,6 +140,9 @@ export type CustomerUpdate = Partial<CustomerInsert>;
 
 export type NfcEventInsert = Pick<NfcEventRow, 'merchant_id' | 'raw_payload'> &
   Partial<Pick<NfcEventRow, 'customer_id'>>;
+
+export type MenuItemInsert = Omit<MenuItemRow, 'id' | 'created_at' | 'updated_at'>;
+export type MenuItemUpdate = Partial<Omit<MenuItemInsert, 'merchant_id'>>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Supabase DB generic (used to type the createClient call)
@@ -169,6 +195,12 @@ export type Database = {
         Update: Partial<Pick<MerchantReviewRow, 'rating' | 'comment'>>;
         Relationships: [];
       };
+      menu_items: {
+        Row: MenuItemRow;
+        Insert: MenuItemInsert;
+        Update: MenuItemUpdate;
+        Relationships: [];
+      };
     };
     Views: {
       merchant_dashboard_summary: {
@@ -184,6 +216,10 @@ export type Database = {
       redeem_points: {
         Args: RedeemPointsArgs;
         Returns: RedeemPointsResult;
+      };
+      redeem_menu_item: {
+        Args: RedeemMenuItemArgs;
+        Returns: RedeemMenuItemResult;
       };
     };
     Enums: {
@@ -259,4 +295,14 @@ export type RedeemPointsResult = {
   redeemed_at?: string;
   error_code?: string;
   message?: string;
+};
+
+export type RedeemMenuItemArgs = {
+  p_merchant_id: string;
+  p_customer_id: string;
+  p_menu_item_id: string;
+};
+
+export type RedeemMenuItemResult = RedeemPointsResult & {
+  menu_item_name?: string;
 };

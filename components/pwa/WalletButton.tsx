@@ -21,6 +21,7 @@
 import { useState, useEffect } from 'react';
 
 interface WalletButtonProps {
+  merchantId:    string;
   merchantName:  string;
   merchantSlug:  string;
   customerName:  string;
@@ -49,23 +50,36 @@ function isInStandaloneMode(): boolean {
 }
 
 export function WalletButton({
-  merchantName, merchantSlug, customerName,
+  merchantId, merchantName, merchantSlug, customerName,
   totalPoints, currentTier, loyaltyUrl,
 }: WalletButtonProps) {
   const [platform, setPlatform] = useState<Platform>('desktop');
   const [isStandalone, setIsStandalone] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [added, setAdded] = useState(false);
+  const [googleWalletLoading, setGoogleWalletLoading] = useState(false);
+  const [googleWalletError, setGoogleWalletError] = useState<string | null>(null);
 
   useEffect(() => {
     setPlatform(detectPlatform());
     setIsStandalone(isInStandaloneMode());
   }, []);
 
-  /* ── Google Wallet deep-link ──────────────────────────────── */
-  // In production, this would be a signed JWT URL from the Google Wallet API.
-  // For demo, we link to the loyalty page which can be saved as a shortcut.
-  const googleWalletUrl = `https://pay.google.com/gp/v/save/`; // placeholder
+  /* ── Google Wallet ───────────────────────────────────────── */
+  const handleGoogleWallet = async () => {
+    setGoogleWalletLoading(true);
+    setGoogleWalletError(null);
+    try {
+      const response = await fetch(`/api/wallet/google?merchantId=${encodeURIComponent(merchantId)}`);
+      const result = await response.json() as { success: boolean; url?: string; message?: string };
+      if (!response.ok || !result.success || !result.url) throw new Error(result.message ?? 'Google Wallet is unavailable.');
+      window.location.assign(result.url);
+    } catch (error) {
+      setGoogleWalletError(error instanceof Error ? error.message : 'Google Wallet is unavailable.');
+    } finally {
+      setGoogleWalletLoading(false);
+    }
+  };
 
   /* ── Apple Wallet instructions ────────────────────────────── */
   const handleAppleWallet = () => {
@@ -125,12 +139,11 @@ export function WalletButton({
       )}
 
       {platform === 'android' && (
-        <a
-          href={googleWalletUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => { e.preventDefault(); handleAddToHome(); }}
-          className="w-full flex items-center justify-center gap-3 py-3.5 px-6 rounded-2xl font-semibold text-sm transition-all active:scale-[0.98]"
+        <button
+          type="button"
+          onClick={() => void handleGoogleWallet()}
+          disabled={googleWalletLoading}
+          className="w-full flex items-center justify-center gap-3 py-3.5 px-6 rounded-2xl font-semibold text-sm transition-all active:scale-[0.98] disabled:opacity-60"
           style={{
             background: 'linear-gradient(135deg, #1a73e8, #0d47a1)',
             color: '#fff',
@@ -141,9 +154,11 @@ export function WalletButton({
           <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
             <path d="M20 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
           </svg>
-          Save to Google Wallet
-        </a>
+          {googleWalletLoading ? 'Preparing your card…' : 'Save to Google Wallet'}
+        </button>
       )}
+
+      {googleWalletError && <p className="text-center text-xs text-red-500">{googleWalletError}</p>}
 
       {platform === 'desktop' && (
         <button

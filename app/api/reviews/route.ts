@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient, createSupabaseServerClient } from '@/lib/supabase/server';
 import { getMerchantRatingSummary } from '@/services/review.service';
+import { ApiInputError, boundedText, consumeRateLimit, isUuid, readJsonBody } from '@/lib/api-safety';
 import type { MerchantReviewRow } from '@/types';
 
 function maskName(fullName: string) {
@@ -12,7 +13,7 @@ function maskName(fullName: string) {
 
 export async function GET(request: NextRequest) {
   const merchantId = new URL(request.url).searchParams.get('merchantId');
-  if (!merchantId) return NextResponse.json({ success: false, message: 'merchantId is required.' }, { status: 400 });
+  if (!isUuid(merchantId)) return NextResponse.json({ success: false, message: 'merchantId is required.' }, { status: 400 });
 
   const summary = await getMerchantRatingSummary(merchantId);
   // Customer IDs are not returned to public callers.
@@ -22,18 +23,25 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json() as { merchantId?: unknown; rating?: unknown; comment?: unknown };
+    const body = await readJsonBody<{ merchantId?: unknown; rating?: unknown; comment?: unknown }>(request);
     const merchantId = typeof body.merchantId === 'string' ? body.merchantId : '';
     const rating = Number(body.rating);
-    const comment = typeof body.comment === 'string' ? body.comment.trim().slice(0, 500) : '';
+    const comment = boundedText(body.comment, 500);
 
-    if (!merchantId || !Number.isInteger(rating) || rating < 1 || rating > 5) {
+    if (!isUuid(merchantId) || !Number.isInteger(rating) || rating < 1 || rating > 5) {
       return NextResponse.json({ success: false, message: 'Choose a rating between 1 and 5 stars.' }, { status: 400 });
     }
 
     const supabase = await createSupabaseServerClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ success: false, message: 'Please sign in before leaving a review.' }, { status: 401 });
+    const limit = await consumeRateLimit(`review:${merchantId}:${user.id}`, 10, 3600);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { success: false, message: limit.unavailable ? 'Service protection is unavailable. Please retry shortly.' : 'Too many review updates. Please retry later.' },
+        { status: limit.unavailable ? 503 : 429 },
+      );
+    }
 
     const admin = await createSupabaseAdminClient();
     const { data: customer } = await admin
@@ -73,6 +81,7 @@ export async function POST(request: NextRequest) {
     })();
     return NextResponse.json({ success: true, review: publicReview, ...summary, reviews: summary.reviews.map(({ customer_id: _customerId, ...item }) => item) });
   } catch (error) {
+    if (error instanceof ApiInputError) return NextResponse.json({ success: false, message: error.message }, { status: 400 });
     console.error('[POST /api/reviews]', error);
     return NextResponse.json({ success: false, message: 'Unable to save your review.' }, { status: 500 });
   }

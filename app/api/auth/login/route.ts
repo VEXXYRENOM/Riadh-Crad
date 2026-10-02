@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createSupabaseAdminClient, createSupabaseServerClient } from '@/lib/supabase/server';
 
 export async function POST(request: Request) {
   try {
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
 
     const supabase = await createSupabaseServerClient();
     
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -25,6 +25,19 @@ export async function POST(request: Request) {
       return NextResponse.redirect(new URL(`/merchant/login?error=${encodeURIComponent(error.message)}`, request.url), {
         status: 302,
       });
+    }
+
+    // An owner grants staff access by email. Bind that invitation only after this
+    // account has authenticated with the same email; the client cannot self-assign a role.
+    const authenticatedEmail = data.user?.email?.trim().toLowerCase();
+    if (data.user && authenticatedEmail) {
+      const admin = await createSupabaseAdminClient();
+      const { error: activationError } = await admin
+        .from('merchant_staff')
+        .update({ auth_uid: data.user.id, status: 'ACTIVE', activated_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+        .eq('email', authenticatedEmail)
+        .eq('status', 'INVITED');
+      if (activationError) console.error('[Staff activation]', activationError.message);
     }
 
     // Success! Redirect to the dashboard

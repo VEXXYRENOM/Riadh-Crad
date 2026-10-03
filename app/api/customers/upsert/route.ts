@@ -113,16 +113,22 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Ensure loyalty card exists for this customer and merchant
-    const { error: cardError } = await admin
+    // Ensure loyalty card exists — only INSERT if it doesn't exist yet.
+    // NEVER update/overwrite an existing card: that would erase the customer's points.
+    const { data: existingCard } = await admin
       .from('loyalty_cards')
-      .upsert(
-        { customer_id: customer.id, merchant_id: merchantId, total_points: 0, lifetime_points: 0 },
-        { onConflict: 'customer_id, merchant_id', ignoreDuplicates: true }
-      );
+      .select('id')
+      .eq('customer_id', customer.id)
+      .eq('merchant_id', merchantId)
+      .maybeSingle();
 
-    if (cardError) {
-      console.error('[upsert card]', cardError);
+    if (!existingCard) {
+      const { error: cardError } = await admin
+        .from('loyalty_cards')
+        .insert({ customer_id: customer.id, merchant_id: merchantId, total_points: 0, lifetime_points: 0 });
+      if (cardError) {
+        console.error('[upsert card]', cardError);
+      }
     }
 
     // We only record the invitation here. The database grants both rewards

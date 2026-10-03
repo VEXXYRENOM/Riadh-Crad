@@ -303,11 +303,9 @@ function classResource(classId: string, merchant: WalletCardData['merchant']) {
     ? merchant.logo_url
     : `${appUrl}/logo.png`;
 
-  const merchantLocations = {
-    merchantLocations: merchant.proximity_enabled && merchant.latitude !== null && merchant.longitude !== null
-      ? [{ latitude: merchant.latitude, longitude: merchant.longitude }]
-      : [],
-  };
+  const locationData = merchant.proximity_enabled && merchant.latitude !== null && merchant.longitude !== null
+    ? { locations: [{ latitude: merchant.latitude, longitude: merchant.longitude }] }
+    : {};
 
   return {
     id: classId,
@@ -315,6 +313,12 @@ function classResource(classId: string, merchant: WalletCardData['merchant']) {
     programName: merchant.name,
     reviewStatus: 'UNDER_REVIEW',
     hexBackgroundColor: '#1C1917',
+    heroImage: {
+      sourceUri: { uri: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1032&auto=format&fit=crop' },
+      contentDescription: {
+        defaultValue: { language: 'en', value: 'Premium Background' },
+      },
+    },
     programLogo: {
       sourceUri: { uri: logoUri },
       contentDescription: {
@@ -336,7 +340,7 @@ function classResource(classId: string, merchant: WalletCardData['merchant']) {
     localizedProgramName: {
       defaultValue: { language: 'en', value: merchant.name },
     },
-    ...merchantLocations,
+    ...locationData,
   };
 }
 
@@ -355,12 +359,6 @@ function objectResource(objectId: string, classId: string, data: WalletCardData)
     // ── Header fields ──────────────────────────────────────────
     accountId: data.card.id,
     accountName: data.customer.full_name || 'RIADH CARD member',
-    heroImage: {
-      sourceUri: { uri: tierHeroImage(tier) },
-      contentDescription: {
-        defaultValue: { language: 'en', value: `${tier} Tier Background` },
-      },
-    },
     // ── Points balance ─────────────────────────────────────────
     loyaltyPoints: {
       label: 'POINTS',

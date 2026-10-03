@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { getMerchantAccessByUserId } from '@/services/merchant-access.service';
+import { getGoogleWalletEnvStatus } from '@/lib/google-wallet';
 import { createClient } from '@supabase/supabase-js';
 
 /**
@@ -42,6 +43,8 @@ export async function GET() {
 
   const access = user ? await getMerchantAccessByUserId(user.id) : null;
 
+  const wallet = await getGoogleWalletEnvStatus();
+
   return NextResponse.json({
     logged_in: Boolean(user),
     user_id: user?.id ?? null,
@@ -51,6 +54,7 @@ export async function GET() {
       has_anon_key: Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
       has_service_role_key: Boolean(serviceKey),
     },
+    google_wallet: wallet,
     access_resolved: Boolean(access),
     role: access?.role ?? null,
     merchant_slug: access?.merchant?.slug ?? null,

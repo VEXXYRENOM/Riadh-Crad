@@ -71,26 +71,102 @@ async function googleFetch(url: string, init: RequestInit) {
   throw lastError;
 }
 
+function normalizePrivateKey(key: string) {
+  const trimmed = key.trim();
+  return trimmed.includes('\\n') ? trimmed.replace(/\\n/g, '\n') : trimmed;
+}
+
+/** Parses service-account JSON from env (handles common Vercel paste mistakes). */
+function parseServiceAccountRaw(raw: string): GoogleServiceAccount | null {
+  let text = raw.trim();
+  if (!text) return null;
+
+  if (
+    (text.startsWith('"') && text.endsWith('"'))
+    || (text.startsWith("'") && text.endsWith("'"))
+  ) {
+    try {
+      const unwrapped = JSON.parse(text) as unknown;
+      if (typeof unwrapped === 'string') text = unwrapped.trim();
+      else text = text.slice(1, -1);
+    } catch {
+      text = text.slice(1, -1);
+    }
+  }
+
+  let parsed: Partial<GoogleServiceAccount>;
+  try {
+    parsed = JSON.parse(text) as Partial<GoogleServiceAccount>;
+  } catch {
+    try {
+      parsed = JSON.parse(Buffer.from(text, 'base64').toString('utf8')) as Partial<GoogleServiceAccount>;
+    } catch {
+      return null;
+    }
+  }
+
+  if (!parsed.client_email || !parsed.private_key) return null;
+  return {
+    client_email: parsed.client_email,
+    private_key: normalizePrivateKey(parsed.private_key),
+    token_uri: parsed.token_uri,
+  };
+}
+
+async function readServiceAccountFromEnv(): Promise<string | null> {
+  const jsonInline = process.env.GOOGLE_WALLET_SERVICE_ACCOUNT_JSON?.trim();
+  if (jsonInline) return jsonInline;
+
+  const b64 = process.env.GOOGLE_WALLET_SERVICE_ACCOUNT_B64?.trim();
+  if (b64) {
+    try {
+      return Buffer.from(b64, 'base64').toString('utf8');
+    } catch {
+      return null;
+    }
+  }
+
+  const credPath = process.env.GOOGLE_APPLICATION_CREDENTIALS?.trim().replace(/^"|"$/g, '');
+  if (!credPath) return null;
+  try {
+    return await readFile(credPath, 'utf8');
+  } catch {
+    return null;
+  }
+}
+
 async function credentials(): Promise<GoogleServiceAccount | null> {
   try {
-    const raw = process.env.GOOGLE_WALLET_SERVICE_ACCOUNT_JSON
-      ?? (process.env.GOOGLE_APPLICATION_CREDENTIALS
-        ? await readFile(process.env.GOOGLE_APPLICATION_CREDENTIALS, 'utf8')
-        : null);
+    const raw = await readServiceAccountFromEnv();
     if (!raw) return null;
-
-    const parsed = JSON.parse(raw) as Partial<GoogleServiceAccount>;
-    return parsed.client_email && parsed.private_key
-      ? {
-        client_email: parsed.client_email,
-        private_key: parsed.private_key,
-        token_uri: parsed.token_uri,
-      }
-      : null;
+    return parseServiceAccountRaw(raw);
   } catch {
     // Do not log credential details from a public customer route.
     return null;
   }
+}
+
+/** Safe deployment check — never returns secrets. */
+export async function getGoogleWalletEnvStatus() {
+  const issuerId = process.env.GOOGLE_WALLET_ISSUER_ID?.trim() ?? '';
+  const account = await credentials();
+  const hasJson = Boolean(process.env.GOOGLE_WALLET_SERVICE_ACCOUNT_JSON?.trim());
+  const hasB64 = Boolean(process.env.GOOGLE_WALLET_SERVICE_ACCOUNT_B64?.trim());
+  const hasFilePath = Boolean(process.env.GOOGLE_APPLICATION_CREDENTIALS?.trim());
+  return {
+    configured: Boolean(issuerId && account),
+    hasIssuerId: issuerId.length > 0,
+    issuerIdValid: /^\d{10,}$/.test(issuerId),
+    hasCredentials: Boolean(account),
+    credentialSources: { json: hasJson, base64: hasB64, filePath: hasFilePath },
+    hint: !issuerId
+      ? 'Set GOOGLE_WALLET_ISSUER_ID in Vercel (Production), then redeploy.'
+      : !account
+        ? hasFilePath && !hasJson && !hasB64
+          ? 'GOOGLE_APPLICATION_CREDENTIALS does not work on Vercel. Use GOOGLE_WALLET_SERVICE_ACCOUNT_JSON or GOOGLE_WALLET_SERVICE_ACCOUNT_B64.'
+          : 'Service account JSON is missing or invalid. Paste minified JSON or base64 in Vercel, then redeploy.'
+        : null,
+  };
 }
 
 function googleApiError(status: number) {
@@ -256,7 +332,7 @@ async function getCardData(merchantId: string, customerId: string): Promise<Wall
 }
 
 async function prepareGoogleWalletCard(merchantId: string, customerId: string) {
-  const issuerId = process.env.GOOGLE_WALLET_ISSUER_ID;
+  const issuerId = process.env.GOOGLE_WALLET_ISSUER_ID?.trim();
   const account = await credentials();
   if (!issuerId || !account) throw new GoogleWalletError('Google Wallet is not configured yet.');
   if (!/^\d{10,}$/.test(issuerId)) throw new GoogleWalletError('Google Wallet Issuer ID must be numeric.');

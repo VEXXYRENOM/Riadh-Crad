@@ -269,8 +269,18 @@ async function ensureWalletResource(
   if (!updated.ok) throw googleApiError(updated.status);
 }
 
+/** Maps tier name to a rich gold/silver/bronze/platinum hex colour for the card background. */
+function tierHexColor(tier: string): string {
+  switch (tier.toUpperCase()) {
+    case 'PLATINUM': return '#1a1a2e'; // deep midnight
+    case 'GOLD':     return '#1C1709'; // deep gold-black
+    case 'SILVER':   return '#1a1a1a'; // cool dark
+    default:         return '#1C1917'; // warm obsidian (BRONZE)
+  }
+}
+
 function classResource(classId: string, merchant: WalletCardData['merchant']) {
-  // Google Wallet requires a programLogo over HTTPS — use merchant logo or fall back to RIADH CARD branded default.
+  // Google Wallet requires a programLogo over HTTPS — use merchant logo or fall back to RIADH CARD default.
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? '').startsWith('https://')
     ? process.env.NEXT_PUBLIC_APP_URL!
     : 'https://riadh-card.vercel.app';
@@ -296,21 +306,87 @@ function classResource(classId: string, merchant: WalletCardData['merchant']) {
         defaultValue: { language: 'en', value: `${merchant.name} loyalty card` },
       },
     },
+    // Secondary logo — RIADH CARD watermark shown on the back
+    secondaryProgramLogo: {
+      sourceUri: { uri: `${appUrl}/logo.png` },
+      contentDescription: {
+        defaultValue: { language: 'en', value: 'RIADH CARD' },
+      },
+    },
+    // Localised labels
+    localizedIssuerName: {
+      defaultValue: { language: 'en', value: 'RIADH CARD' },
+      translatedValues: [{ language: 'fr', value: 'RIADH CARD' }, { language: 'ar', value: 'رياض كارد' }],
+    },
+    localizedProgramName: {
+      defaultValue: { language: 'en', value: merchant.name },
+    },
     ...merchantLocations,
   };
 }
 
 function objectResource(objectId: string, classId: string, data: WalletCardData) {
   const points = Math.max(0, Math.trunc(data.card.total_points));
+  const tier = data.card.current_tier.toUpperCase();
+  const tierEmoji: Record<string, string> = { BRONZE: '🥉', SILVER: '🥈', GOLD: '🏅', PLATINUM: '💎' };
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? '').startsWith('https://')
+    ? process.env.NEXT_PUBLIC_APP_URL!
+    : 'https://riadh-card.vercel.app';
+
   return {
     id: objectId,
     classId,
     state: 'ACTIVE',
+    // ── Header fields ──────────────────────────────────────────
     accountId: data.card.id,
     accountName: data.customer.full_name || 'RIADH CARD member',
-    loyaltyPoints: { label: 'POINTS', balance: { int: points } },
-    barcode: { type: 'QR_CODE', value: `${data.merchant.slug}:${data.card.id}` },
-    textModulesData: [{ id: 'tier', header: 'MEMBERSHIP', body: data.card.current_tier }],
+    // ── Points balance ─────────────────────────────────────────
+    loyaltyPoints: {
+      label: 'POINTS',
+      balance: { int: points },
+      localizedLabel: {
+        defaultValue: { language: 'en', value: 'Points' },
+        translatedValues: [{ language: 'fr', value: 'Points' }, { language: 'ar', value: 'نقاط' }],
+      },
+    },
+    // ── QR code — encodes slug:cardId for NFC/scan counter ─────
+    barcode: {
+      type: 'QR_CODE',
+      value: `${data.merchant.slug}:${data.card.id}`,
+      alternateText: data.card.id.slice(0, 8).toUpperCase(),
+    },
+    // ── Tier badge & extra info panels ─────────────────────────
+    textModulesData: [
+      {
+        id: 'tier',
+        header: 'MEMBERSHIP',
+        body: `${tierEmoji[tier] ?? ''} ${tier}`,
+        localizedHeader: { defaultValue: { language: 'en', value: 'Membership' } },
+        localizedBody: { defaultValue: { language: 'en', value: `${tierEmoji[tier] ?? ''} ${tier}` } },
+      },
+      {
+        id: 'merchant',
+        header: 'STORE',
+        body: data.merchant.name,
+        localizedHeader: { defaultValue: { language: 'en', value: 'Store' } },
+      },
+    ],
+    // ── Info links on the back of the card ─────────────────────
+    linksModuleData: {
+      uris: [
+        {
+          uri: `${appUrl}/b/${data.merchant.slug}`,
+          description: 'View my loyalty card',
+          id: 'loyalty_url',
+          localizedDescription: {
+            defaultValue: { language: 'en', value: 'View My Loyalty Card' },
+            translatedValues: [{ language: 'fr', value: 'Voir ma carte de fidélité' }],
+          },
+        },
+      ],
+    },
+    // ── Dynamic background colour per tier ─────────────────────
+    hexBackgroundColor: tierHexColor(tier),
   };
 }
 

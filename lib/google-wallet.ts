@@ -418,7 +418,7 @@ async function prepareGoogleWalletCard(merchantId: string, customerId: string) {
 
   const classId = `${issuerId}.riadh-${safeId(data.merchant.slug)}`;
   const objectId = `${issuerId}.member-${safeId(data.merchant.id)}-${safeId(data.customer.id)}`;
-  await ensureWalletResource(account, `/loyaltyClass/${encodeURIComponent(classId)}`, '/loyaltyClass', classResource(classId, data.merchant), false);
+  await ensureWalletResource(account, `/loyaltyClass/${encodeURIComponent(classId)}`, '/loyaltyClass', classResource(classId, data.merchant), true);
   await ensureWalletResource(account, `/loyaltyObject/${encodeURIComponent(objectId)}`, '/loyaltyObject', objectResource(objectId, classId, data), true);
 
   return { account, classId, objectId };

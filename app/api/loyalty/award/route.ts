@@ -60,8 +60,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Call atomic RPC
-    const admin = await createSupabaseAdminClient();
-    const { data, error } = await admin.rpc('award_points', {
+    // Use the authenticated 'supabase' client so the user's JWT is passed to Postgres.
+    // This allows the RPC to verify auth.uid() successfully.
+    const { data, error } = await supabase.rpc('award_points', {
       p_merchant_id:  merchantId,
       p_customer_id:  customerId,
       p_amount_tnd:   amountTnd,
@@ -90,7 +91,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Idempotent: the SQL function only processes a pending invitation.
-    const { error: referralError } = await admin.rpc('complete_referral_after_first_purchase', {
+    const { error: referralError } = await supabase.rpc('complete_referral_after_first_purchase', {
       p_merchant_id: merchantId,
       p_referred_customer_id: customerId,
     });

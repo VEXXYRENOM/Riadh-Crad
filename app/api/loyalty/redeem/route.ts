@@ -75,8 +75,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Call atomic RPC
-    const { data, error } = await admin.rpc('redeem_points', {
+    // Call atomic RPC with the authenticated supabase client so auth.uid() is populated
+    const { data, error } = await supabase.rpc('redeem_points', {
       p_merchant_id: merchantId,
       p_customer_id: customerId,
       p_points:      points,

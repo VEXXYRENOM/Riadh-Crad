@@ -26,7 +26,8 @@ export async function POST(request: NextRequest) {
     const { data: customer } = await admin.from('customers').select('id').eq('auth_uid', user.id).maybeSingle();
     if (!customer) return NextResponse.json({ success: false, message: 'Customer profile not found.' }, { status: 404 });
 
-    const { data, error } = await admin.rpc('redeem_menu_item', {
+    // Call atomic RPC with the authenticated supabase client so auth.uid() is populated
+    const { data, error } = await supabase.rpc('redeem_menu_item', {
       p_merchant_id: body.merchantId,
       p_customer_id: customer.id,
       p_menu_item_id: body.menuItemId,

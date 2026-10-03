@@ -279,7 +279,22 @@ function tierHexColor(tier: string): string {
   }
 }
 
+/** Returns a premium abstract banner image URL based on the tier for the Wallet Card header. */
+function tierHeroImage(tier: string): string {
+  switch (tier.toUpperCase()) {
+    case 'PLATINUM': // Dark blue/diamond abstract
+      return 'https://images.unsplash.com/photo-1601314167099-232775bbabdf?q=80&w=1032&auto=format&fit=crop';
+    case 'GOLD': // Gold liquid abstract
+      return 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1032&auto=format&fit=crop';
+    case 'SILVER': // Silver/chrome fluid
+      return 'https://images.unsplash.com/photo-1579548122080-c35fd6820ecb?q=80&w=1032&auto=format&fit=crop';
+    default: // BRONZE - Warm copper/bronze geometric
+      return 'https://images.unsplash.com/photo-1634152962476-4b8a00e1915c?q=80&w=1032&auto=format&fit=crop';
+  }
+}
+
 function classResource(classId: string, merchant: WalletCardData['merchant']) {
+
   // Google Wallet requires a programLogo over HTTPS — use merchant logo or fall back to RIADH CARD default.
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? '').startsWith('https://')
     ? process.env.NEXT_PUBLIC_APP_URL!
@@ -340,6 +355,12 @@ function objectResource(objectId: string, classId: string, data: WalletCardData)
     // ── Header fields ──────────────────────────────────────────
     accountId: data.card.id,
     accountName: data.customer.full_name || 'RIADH CARD member',
+    heroImage: {
+      sourceUri: { uri: tierHeroImage(tier) },
+      contentDescription: {
+        defaultValue: { language: 'en', value: `${tier} Tier Background` },
+      },
+    },
     // ── Points balance ─────────────────────────────────────────
     loyaltyPoints: {
       label: 'POINTS',

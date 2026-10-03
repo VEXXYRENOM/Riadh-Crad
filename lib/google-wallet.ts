@@ -194,16 +194,14 @@ async function ensureWalletResource(
 }
 
 function classResource(classId: string, merchant: WalletCardData['merchant']) {
-  const secureLogo = merchant.logo_url?.startsWith('https://')
-    ? {
-      programLogo: {
-        sourceUri: { uri: merchant.logo_url },
-        contentDescription: {
-          defaultValue: { language: 'en', value: `${merchant.name} logo` },
-        },
-      },
-    }
-    : {};
+  // Google Wallet requires a programLogo over HTTPS — use merchant logo or fall back to RIADH CARD branded default.
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? '').startsWith('https://')
+    ? process.env.NEXT_PUBLIC_APP_URL!
+    : 'https://riadh-card.vercel.app';
+  const logoUri = merchant.logo_url?.startsWith('https://')
+    ? merchant.logo_url
+    : `${appUrl}/logo.png`;
+
   const merchantLocations = {
     merchantLocations: merchant.proximity_enabled && merchant.latitude !== null && merchant.longitude !== null
       ? [{ latitude: merchant.latitude, longitude: merchant.longitude }]
@@ -216,7 +214,12 @@ function classResource(classId: string, merchant: WalletCardData['merchant']) {
     programName: merchant.name,
     reviewStatus: 'UNDER_REVIEW',
     hexBackgroundColor: '#1C1917',
-    ...secureLogo,
+    programLogo: {
+      sourceUri: { uri: logoUri },
+      contentDescription: {
+        defaultValue: { language: 'en', value: `${merchant.name} loyalty card` },
+      },
+    },
     ...merchantLocations,
   };
 }

@@ -18,7 +18,7 @@
  *        This component shows the UI flow and provides the correct deeplink structure.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface WalletButtonProps {
   merchantId:    string;
@@ -59,10 +59,28 @@ export function WalletButton({
   const [added, setAdded] = useState(false);
   const [googleWalletLoading, setGoogleWalletLoading] = useState(false);
   const [googleWalletError, setGoogleWalletError] = useState<string | null>(null);
+  // Captures the native browser PWA install prompt
+  const installPromptRef = useRef<Event & { prompt: () => Promise<void> } | null>(null);
+  const [canInstallPwa, setCanInstallPwa] = useState(false);
 
   useEffect(() => {
     setPlatform(detectPlatform());
     setIsStandalone(isInStandaloneMode());
+
+    // Listen for Chrome/Edge/Android native install prompt
+    const handleBeforeInstall = (e: Event) => {
+      e.preventDefault(); // prevent auto-mini-infobar
+      installPromptRef.current = e as Event & { prompt: () => Promise<void> };
+      setCanInstallPwa(true);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+
+    // Hide button once installed
+    window.addEventListener('appinstalled', () => setCanInstallPwa(false));
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+    };
   }, []);
 
   /* ── Google Wallet ───────────────────────────────────────── */
@@ -89,8 +107,16 @@ export function WalletButton({
   };
 
   /* ── PWA Add to Home Screen ───────────────────────────────── */
-  const handleAddToHome = () => {
-    setShowGuide(true);
+  const handleAddToHome = async () => {
+    if (installPromptRef.current) {
+      // Trigger the native browser install dialog
+      await installPromptRef.current.prompt();
+      installPromptRef.current = null;
+      setCanInstallPwa(false);
+    } else {
+      // Fallback: show manual guide (iOS Safari)
+      setShowGuide(true);
+    }
   };
 
   const handleAddedConfirm = () => {
@@ -160,12 +186,37 @@ export function WalletButton({
 
       {googleWalletError && <p className="text-center text-xs text-red-500">{googleWalletError}</p>}
 
-      {platform === 'desktop' && (
+      {/* Native PWA install button — shown when browser fires beforeinstallprompt */}
+      {canInstallPwa && (
         <button
-          onClick={handleAddToHome}
+          onClick={() => void handleAddToHome()}
+          className="w-full flex items-center justify-center gap-3 py-3.5 px-6 rounded-2xl font-semibold text-sm transition-all active:scale-[0.98]"
+          style={{
+            background: 'linear-gradient(135deg, #D4AF37, #B89020)',
+            color: '#0D0B08',
+            boxShadow: '0 4px 20px rgba(212,175,55,0.4)',
+          }}
+        >
+          📲 Install RIADH CARD App
+        </button>
+      )}
+
+      {/* Fallback manual guide for iOS or when prompt isn't available */}
+      {platform === 'desktop' && !canInstallPwa && (
+        <button
+          onClick={() => void handleAddToHome()}
           className="w-full flex items-center justify-center gap-3 py-3.5 px-6 rounded-2xl font-semibold text-sm border border-gold-300 text-obsidian-700 hover:bg-gold-50 transition-all"
         >
           📲 Add to Home Screen
+        </button>
+      )}
+
+      {platform === 'ios' && !canInstallPwa && (
+        <button
+          onClick={() => void handleAddToHome()}
+          className="w-full flex items-center justify-center gap-3 py-3.5 px-6 rounded-2xl font-semibold text-sm border border-gold-300 text-obsidian-700 hover:bg-gold-50 transition-all"
+        >
+          📲 Add to Home Screen (iOS)
         </button>
       )}
 

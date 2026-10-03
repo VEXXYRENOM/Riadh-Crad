@@ -47,7 +47,7 @@ export const metadata: Metadata = {
     description: 'Ultra-premium NFC-powered loyalty for elite merchants.',
   },
   robots: { index: true, follow: true },
-  manifest: '/manifest.json',
+  manifest: '/manifest.webmanifest',
 };
 
 export const viewport: Viewport = {

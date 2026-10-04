@@ -10,6 +10,7 @@ import { createSupabaseAdminClient, createSupabaseServerClient } from '@/lib/sup
 import { syncGoogleWalletLoyaltyCard } from '@/lib/google-wallet';
 import { ApiInputError, boundedText, consumeRateLimit, isUuid, readJsonBody } from '@/lib/api-safety';
 import { canAwardPoints } from '@/services/merchant-access.service';
+import { sendRewardEmail } from '@/lib/email';
 import type { TransactionSource } from '@/types';
 
 interface AwardRequestBody {
@@ -96,6 +97,39 @@ export async function POST(request: NextRequest) {
       p_referred_customer_id: customerId,
     });
     if (referralError) console.error('[referral completion]', referralError.message);
+
+    // ── Reward email ──────────────────────────────────────────────────
+    // Best-effort — runs in parallel with wallet sync, never blocks the response.
+    void (async () => {
+      try {
+        const { data: customerRow } = await (await createSupabaseAdminClient())
+          .from('customers')
+          .select('full_name, auth_uid')
+          .eq('id', customerId)
+          .single();
+        const { data: authUser } = await (await createSupabaseAdminClient())
+          .auth.admin.getUserById(customerRow?.auth_uid ?? '');
+        const { data: merchantRow } = await (await createSupabaseAdminClient())
+          .from('merchants')
+          .select('name, slug')
+          .eq('id', merchantId)
+          .single();
+
+        if (authUser?.user?.email && customerRow && merchantRow) {
+          await sendRewardEmail({
+            to:           authUser.user.email,
+            customerName: customerRow.full_name ?? 'عزيزي العميل',
+            merchantName: merchantRow.name,
+            eventType:    'earned',
+            points:       result.points_added ?? 0,
+            totalPoints:  result.total_points ?? 0,
+            cardUrl:      `${process.env.NEXT_PUBLIC_APP_URL}/b/${merchantRow.slug}`,
+          });
+        }
+      } catch (e) {
+        console.error('[email] award reward email failed:', e);
+      }
+    })();
 
     // Best effort: the points transaction is already committed atomically in Supabase.
     // A temporary Google outage must never make the cashier operation fail.

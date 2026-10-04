@@ -29,6 +29,7 @@ export function PwaOnboarding({ merchantId, merchantName, merchantLogoUrl, slug,
   const [step, setStep]         = useState<Step>('PHONE');
   const [phone, setPhone]       = useState('');
   const [fullName, setFullName] = useState('');
+  const [email, setEmail]       = useState('');
   const [otp, setOtp]           = useState('');
   const [error, setError]       = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -102,6 +103,7 @@ export function PwaOnboarding({ merchantId, merchantName, merchantLogoUrl, slug,
         // ⚠️ DEV: send phone in body so the API can create the user server-side
         body: JSON.stringify({
           fullName,
+          email: email.trim() || undefined,
           merchantId,
           referralCode,
           ...(SKIP_OTP_FOR_DEV ? { devPhone: phone.trim() } : {}),
@@ -252,6 +254,18 @@ export function PwaOnboarding({ merchantId, merchantName, merchantLogoUrl, slug,
                 onChange={(e) => setFullName(e.target.value)}
                 className="input-gold"
                 required
+              />
+            </div>
+            <div>
+              <label htmlFor="email-input" className="label-gold mb-2 block">Email Address (Optional)</label>
+              <input
+                id="email-input"
+                type="email"
+                autoComplete="email"
+                placeholder="ahmed@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="input-gold"
               />
             </div>
             {error && <p className="text-red-500 text-xs">{error}</p>}

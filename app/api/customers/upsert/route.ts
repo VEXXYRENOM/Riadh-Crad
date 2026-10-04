@@ -7,9 +7,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, createSupabaseAdminClient } from '@/lib/supabase/server';
 import { ApiInputError, boundedText, consumeRateLimit, isUuid, readJsonBody } from '@/lib/api-safety';
+import { sendWelcomeEmail } from '@/lib/email';
 
 interface UpsertBody {
   fullName:     string;
+  email?:       string;
   merchantId:   string;
   referralCode?: string;
   // ⚠️ DEV only — sent when SKIP_OTP_FOR_DEV is active on the client
@@ -24,6 +26,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await readJsonBody<UpsertBody>(request);
     const fullName = boundedText(body.fullName, 80);
+    const emailStr = body.email ? boundedText(body.email, 120) : undefined;
     const merchantId = body.merchantId;
     const referralCode = body.referralCode;
     const devPhone = boundedText(body.devPhone, 30);
@@ -105,6 +108,14 @@ export async function POST(request: NextRequest) {
       : admin.from('customers').insert({ phone, auth_uid: user.id, full_name: fullName }).select('id').single();
     const { data: customer, error } = await customerWrite;
 
+    // Optional: save their email in auth if provided
+    if (emailStr && (!user.email || user.email !== emailStr)) {
+      await admin.auth.admin.updateUserById(user.id, {
+        email: emailStr,
+        email_confirm: true,
+      }).catch(e => console.error('[upsert] failed to update email:', e));
+    }
+
     if (error || !customer) {
       console.error('[upsert customer]', error);
       return NextResponse.json(
@@ -122,12 +133,33 @@ export async function POST(request: NextRequest) {
       .eq('merchant_id', merchantId)
       .maybeSingle();
 
-    if (!existingCard) {
+    const isNewCustomer = !existingCard;
+    if (isNewCustomer) {
       const { error: cardError } = await admin
         .from('loyalty_cards')
         .insert({ customer_id: customer.id, merchant_id: merchantId, total_points: 0, lifetime_points: 0 });
       if (cardError) {
         console.error('[upsert card]', cardError);
+      }
+
+      // ── Welcome email ─────────────────────────────────────────────────────
+      // Best-effort: email failure must never block the registration response.
+      const customerEmail = emailStr || user.email;
+      if (customerEmail) {
+        const { data: merchantRow } = await admin
+          .from('merchants')
+          .select('name, slug')
+          .eq('id', merchantId)
+          .single();
+
+        if (merchantRow) {
+          void sendWelcomeEmail({
+            to:           customerEmail,
+            customerName: fullName,
+            merchantName: merchantRow.name,
+            cardUrl:      `${process.env.NEXT_PUBLIC_APP_URL}/b/${merchantRow.slug}`,
+          }).catch(e => console.error('[email] welcome send failed:', e));
+        }
       }
     }
 

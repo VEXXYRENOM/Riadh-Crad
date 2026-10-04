@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdminClient, createSupabaseServerClient } from '@/lib/supabase/server';
 import { syncGoogleWalletLoyaltyCard } from '@/lib/google-wallet';
 import { ApiInputError, boundedText, consumeRateLimit, isUuid, readJsonBody } from '@/lib/api-safety';
+import { sendRewardEmail } from '@/lib/email';
 
 interface RedeemRequestBody {
   merchantId: string;
@@ -103,6 +104,39 @@ export async function POST(request: NextRequest) {
     }
 
     void syncGoogleWalletLoyaltyCard(merchantId, customerId);
+
+    // ── Reward email (redeemed) ────────────────────────────────────────
+    void (async () => {
+      try {
+        const adminClient = await createSupabaseAdminClient();
+        const { data: customerRow } = await adminClient
+          .from('customers')
+          .select('full_name, auth_uid')
+          .eq('id', customerId)
+          .single();
+        const { data: authUser } = await adminClient
+          .auth.admin.getUserById(customerRow?.auth_uid ?? '');
+        const { data: merchantRow } = await adminClient
+          .from('merchants')
+          .select('name, slug')
+          .eq('id', merchantId)
+          .single();
+
+        if (authUser?.user?.email && customerRow && merchantRow) {
+          await sendRewardEmail({
+            to:           authUser.user.email,
+            customerName: customerRow.full_name ?? 'عزيزي العميل',
+            merchantName: merchantRow.name,
+            eventType:    'redeemed',
+            points:       result.points_redeemed ?? 0,
+            totalPoints:  result.total_points ?? 0,
+            cardUrl:      `${process.env.NEXT_PUBLIC_APP_URL}/b/${merchantRow.slug}`,
+          });
+        }
+      } catch (e) {
+        console.error('[email] redeem reward email failed:', e);
+      }
+    })();
 
     return NextResponse.json(result, { status: 200 });
   } catch (err) {

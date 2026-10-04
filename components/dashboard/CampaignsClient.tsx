@@ -12,9 +12,10 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Send, Clock, Users, Megaphone, Tag, Bell, Star, Eye, CheckCircle } from 'lucide-react';
+import { Send, Clock, Users, Megaphone, Tag, Bell, Star, Eye, CheckCircle, Mail, Smartphone, Layers } from 'lucide-react';
 
 type CampaignType = 'PROMOTION' | 'REMINDER' | 'EVENT' | 'ANNOUNCEMENT';
+type Channel     = 'push' | 'email' | 'both';
 
 interface Campaign {
   id:              string;
@@ -43,9 +44,16 @@ const TYPE_CONFIG: Record<CampaignType, {
 
 const MAX_MSG_LENGTH = 280;
 
+const CHANNEL_CONFIG: Record<Channel, { label: string; sub: string; icon: React.ElementType; color: string; bg: string; border: string }> = {
+  push:  { label: 'Push Notification', sub: 'إشعار فوري للتطبيق',  icon: Smartphone, color: '#3B82F6', bg: '#EFF6FF', border: '#BFDBFE' },
+  email: { label: 'Email',             sub: 'بريد إلكتروني مُنسَّق', icon: Mail,        color: '#10B981', bg: '#ECFDF5', border: '#6EE7B7' },
+  both:  { label: 'Push + Email',      sub: 'الإرسال عبر القناتين',  icon: Layers,     color: '#D4AF37', bg: '#FFFDF0', border: '#D4AF37' },
+};
+
 export function CampaignsClient({ merchantId, merchantName, customerCount }: Props) {
   const [tab, setTab]         = useState<'compose' | 'history'>('compose');
   const [type, setType]       = useState<CampaignType>('PROMOTION');
+  const [channel, setChannel] = useState<Channel>('both');
   const [title, setTitle]     = useState('');
   const [message, setMessage] = useState('');
   const [preview, setPreview] = useState(false);
@@ -88,7 +96,7 @@ export function CampaignsClient({ merchantId, merchantName, customerCount }: Pro
       const res  = await fetch('/api/campaigns', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ merchantId, title, message, type }),
+        body:    JSON.stringify({ merchantId, title, message, type, channel }),
       });
       const data = await res.json();
 
@@ -112,6 +120,7 @@ export function CampaignsClient({ merchantId, merchantName, customerCount }: Pro
     setSent(null);
     setError(null);
     setPreview(false);
+    setChannel('both');
   };
 
   /* ── Helpers ────────────────────────────────────────────── */
@@ -179,6 +188,33 @@ export function CampaignsClient({ merchantId, merchantName, customerCount }: Pro
               </div>
             ) : (
               <>
+                {/* ── Channel selector ───────────────────────────── */}
+                <div>
+                  <p className="label-gold mb-3">📡 قناة الإرسال</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(Object.entries(CHANNEL_CONFIG) as [Channel, typeof CHANNEL_CONFIG[Channel]][]).map(([key, c]) => {
+                      const Icon = c.icon;
+                      const active = channel === key;
+                      return (
+                        <button
+                          key={key}
+                          onClick={() => setChannel(key)}
+                          className="flex flex-col items-center gap-1.5 px-3 py-3 rounded-xl border text-xs font-semibold transition-all duration-200"
+                          style={active
+                            ? { background: c.bg, borderColor: c.color, color: c.color, boxShadow: `0 0 0 2px ${c.border}` }
+                            : { background: '#fff', borderColor: '#E5D9A0', color: '#6B6040' }
+                          }
+                        >
+                          <Icon className="w-5 h-5" />
+                          <span>{c.label}</span>
+                          <span className="text-[10px] font-normal opacity-70">{c.sub}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* ── Message Type ───────────────────────────────── */}
                 <div>
                   <p className="label-gold mb-3">Message Type</p>
                   <div className="grid grid-cols-2 gap-2">
@@ -254,17 +290,17 @@ export function CampaignsClient({ merchantId, merchantName, customerCount }: Pro
                     onClick={handleSend}
                     disabled={sending || !title.trim() || !message.trim()}
                     className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-obsidian-900 text-sm font-bold transition-all disabled:opacity-40"
-                    style={{ background: 'linear-gradient(135deg, #D4AF37, #B89020)' }}
+                    style={{ background: `linear-gradient(135deg, ${CHANNEL_CONFIG[channel].color}, ${CHANNEL_CONFIG[channel].border})` }}
                   >
                     {sending ? (
                       <>
                         <span className="w-4 h-4 border-2 border-obsidian-900/30 border-t-obsidian-900 rounded-full animate-spin" />
-                        Sending…
+                        جاري الإرسال…
                       </>
                     ) : (
                       <>
-                        <Send className="w-4 h-4" />
-                        Send to {customerCount} Customers
+                        {React.createElement(CHANNEL_CONFIG[channel].icon, { className: 'w-4 h-4' })}
+                        إرسال عبر {CHANNEL_CONFIG[channel].label} ({customerCount})
                       </>
                     )}
                   </button>

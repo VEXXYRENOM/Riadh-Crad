@@ -11,21 +11,24 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, createSupabaseAdminClient } from '@/lib/supabase/server';
 import { sendCampaignPushNotifications } from '@/lib/push';
 import { ApiInputError, boundedText, consumeRateLimit, isUuid, readJsonBody } from '@/lib/api-safety';
+import { sendCampaignEmail } from '@/lib/email';
 
 interface CampaignRequestBody {
   merchantId: string;
   title:      string;
   message:    string;
   type:       'PROMOTION' | 'REMINDER' | 'EVENT' | 'ANNOUNCEMENT';
+  channel?:   'push' | 'email' | 'both';
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = await readJsonBody<CampaignRequestBody>(request, 8_192);
     const merchantId = body.merchantId;
-    const title = boundedText(body.title, 120);
+    const title   = boundedText(body.title, 120);
     const message = boundedText(body.message, 1_000);
-    const type = body.type;
+    const type    = body.type;
+    const channel = body.channel ?? 'both';  // default: send via both channels
 
     if (!isUuid(merchantId) || !title || !message || !['PROMOTION', 'REMINDER', 'EVENT', 'ANNOUNCEMENT'].includes(type)) {
       return NextResponse.json(
@@ -57,7 +60,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const limit = await consumeRateLimit(`campaign:${merchantId}:${user.id}`, 2, 3600);
+    // ⚠️ تم رفع الحد مؤقتاً للتجربة (100 حملة في الساعة بدلاً من 2)
+    const limit = await consumeRateLimit(`campaign:${merchantId}:${user.id}`, 100, 3600);
     if (!limit.allowed) {
       return NextResponse.json(
         { success: false, message: limit.unavailable ? 'Service protection is unavailable. Please retry shortly.' : 'Too many campaigns. Please retry later.' },
@@ -95,19 +99,70 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      const pushResult = await sendCampaignPushNotifications(merchantId, `/b/${merchant.slug}`, title, message);
+      // ── Push Notification ───────────────────────────────────────────
+      let pushDelivered = 0;
+      let pushFailed    = 0;
+
+      if (channel === 'push' || channel === 'both') {
+        const pushResult = await sendCampaignPushNotifications(merchantId, `/b/${merchant.slug}`, title, message);
+        pushDelivered = pushResult.delivered;
+        pushFailed    = pushResult.failed;
+      }
+
       await admin.from('campaigns').update({ status: 'SENT', sent_at: new Date().toISOString() }).eq('id', campaign.id);
+
+      // ── Email blast ──────────────────────────────────────────────────
+      // Fire-and-forget: email delivery must not delay the API response.
+      if (channel === 'email' || channel === 'both') {
+        void (async () => {
+          try {
+            const { data: cards } = await admin
+              .from('loyalty_cards')
+              .select('customer_id, customers(full_name, auth_uid)')
+              .eq('merchant_id', merchantId)
+              .eq('is_blocked', false)
+              .limit(500);
+
+            if (!cards?.length) return;
+
+            const emailJobs = cards
+              .filter(c => c.customers)
+              .map(async (c) => {
+                const cust = Array.isArray(c.customers) ? c.customers[0] : c.customers;
+                if (!cust?.auth_uid) return;
+                const { data: authUser } = await admin.auth.admin.getUserById(cust.auth_uid);
+                if (!authUser?.user?.email) return;
+                await sendCampaignEmail({
+                  to:            authUser.user.email,
+                  customerName:  cust.full_name ?? 'عزيزي العميل',
+                  merchantName:  merchant.name,
+                  campaignTitle: title,
+                  campaignBody:  message,
+                  ctaUrl:        `${process.env.NEXT_PUBLIC_APP_URL}/b/${merchant.slug}`,
+                });
+              });
+
+            const results = await Promise.allSettled(emailJobs);
+            const emailFailed = results.filter(r => r.status === 'rejected').length;
+            if (emailFailed > 0) console.error(`[campaigns] ${emailFailed} email(s) failed to deliver.`);
+          } catch (e) {
+            console.error('[campaigns] email blast error:', e);
+          }
+        })();
+      }
+
       return NextResponse.json({
-        success: true,
-        campaign_id: campaign.id,
+        success:         true,
+        campaign_id:     campaign.id,
         recipient_count: recipientCount ?? 0,
-        push_delivered: pushResult.delivered,
-        push_failed: pushResult.failed,
-        merchant_name: merchant.name,
-        message: `Campaign sent to ${recipientCount ?? 0} customer(s).`,
+        push_delivered:  pushDelivered,
+        push_failed:     pushFailed,
+        channel,
+        merchant_name:   merchant.name,
+        message: `Campaign sent to ${recipientCount ?? 0} customer(s) via ${channel}.`,
       });
     } catch (error) {
-      console.error('[campaigns] push send failed:', error instanceof Error ? error.message : 'Unknown error');
+      console.error('[campaigns] send failed:', error instanceof Error ? error.message : 'Unknown error');
       await admin.from('campaigns').update({ status: 'FAILED' }).eq('id', campaign.id);
       return NextResponse.json({ success: false, campaign_id: campaign.id, message: 'Campaign could not be delivered. It is marked as failed.' }, { status: 503 });
     }

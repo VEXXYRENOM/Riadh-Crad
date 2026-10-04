@@ -85,33 +85,32 @@ export default async function DashboardPage() {
   return (
     <div className="flex flex-col gap-8">
 
-      {/* ── Page header ──────────────────────────────────── */}
-      <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-6 animate-fade-up">
+      {/* ── Page header ────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-up">
         <div>
           <p className="label-gold mb-1">Executive Overview</p>
           <h1 className="heading-luxury text-3xl lg:text-4xl text-obsidian-900">
-            Good{' '}
-            {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'},{' '}
+            {new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 18 ? 'Good afternoon' : 'Good evening'},{' '}
             <span className="text-gold-gradient-static">{merchant.name}</span> ✦
           </h1>
-          <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50/80 px-3 py-1.5 text-xs font-semibold text-emerald-800">
-            <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" /><span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" /></span>
-            <Radio className="h-3.5 w-3.5" /> NFC desk is live and ready for customer taps
-          </div>
         </div>
 
-        <div className="flex flex-col gap-3 xl:items-end">
-          <div className="self-start rounded-full border border-gold-200 bg-white/65 px-4 py-2 xl:self-end">
-            <p className="text-obsidian-600 text-sm font-medium">{new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+        <div className="flex flex-col items-start sm:items-end gap-2">
+          <div className="rounded-full border border-gold-200 bg-white/65 px-4 py-2">
+            <p className="text-obsidian-600 text-sm font-medium">
+              {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="mr-1 text-[10px] font-bold uppercase tracking-[0.14em] text-obsidian-400">Quick actions</span>
-            <a href={`/b/${merchant.slug}`} className="inline-flex items-center gap-1.5 rounded-xl border border-gold-200 bg-white/80 px-3 py-2 text-xs font-semibold text-obsidian-700 transition hover:border-gold-400 hover:bg-gold-50"><ExternalLink className="h-3.5 w-3.5 text-gold-700" /> Customer card</a>
-            {role === 'OWNER' && <><a href="/merchant/dashboard/campaigns" className="inline-flex items-center gap-1.5 rounded-xl border border-gold-200 bg-white/80 px-3 py-2 text-xs font-semibold text-obsidian-700 transition hover:border-gold-400 hover:bg-gold-50"><Megaphone className="h-3.5 w-3.5 text-gold-700" /> Campaigns</a><a href="/merchant/dashboard/settings" className="inline-flex items-center gap-1.5 rounded-xl border border-gold-200 bg-white/80 px-3 py-2 text-xs font-semibold text-obsidian-700 transition hover:border-gold-400 hover:bg-gold-50"><Settings className="h-3.5 w-3.5 text-gold-700" /> Store profile</a><a href="/merchant/dashboard/menu" className="inline-flex items-center gap-1.5 rounded-xl border border-gold-200 bg-white/80 px-3 py-2 text-xs font-semibold text-obsidian-700 transition hover:border-gold-400 hover:bg-gold-50"><UtensilsCrossed className="h-3.5 w-3.5 text-gold-700" /> Menu &amp; rewards</a></>}
-            <a href="/merchant/dashboard/qr" className="inline-flex items-center gap-1.5 rounded-xl bg-obsidian-900 px-3 py-2 text-xs font-bold text-gold-200 shadow-[0_8px_16px_-10px_rgba(47,31,14,.7)] transition hover:-translate-y-0.5 hover:bg-obsidian-800"><QrCode className="h-3.5 w-3.5" /> Set up NFC &amp; QR</a>
+          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50/80 px-3 py-1.5 text-xs font-semibold text-emerald-800">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+            </span>
+            NFC desk is live
           </div>
         </div>
       </div>
+
 
       {/* ── KPI Cards ─────────────────────────────────────── */}
       {summary ? (

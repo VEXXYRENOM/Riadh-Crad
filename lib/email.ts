@@ -5,7 +5,6 @@
  * strongly-typed helpers for every transactional event in the app.
  */
 
-import emailjs from '@emailjs/nodejs';
 import {
   welcomeEmail,
   otpEmail,
@@ -24,37 +23,37 @@ export interface EmailResult {
 }
 
 // Helper to send via EmailJS
-async function sendEmailJSTemplate(to: string, subject: string, html: string): Promise<EmailResult> {
-  const serviceId = process.env.EMAILJS_SERVICE_ID;
-  const templateId = process.env.EMAILJS_TEMPLATE_ID;
-  const publicKey = process.env.EMAILJS_PUBLIC_KEY;
-  const privateKey = process.env.EMAILJS_PRIVATE_KEY;
+import nodemailer from 'nodemailer';
 
-  if (!serviceId || !templateId || !publicKey || !privateKey) {
-    console.error('[email] Missing EmailJS environment variables');
-    return { success: false, error: 'Missing EmailJS configuration' };
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.GMAIL_USER,
+    pass: process.env.GMAIL_APP_PASSWORD,
+  },
+});
+
+async function sendNodemailerTemplate(to: string, subject: string, html: string): Promise<EmailResult> {
+  const user = process.env.GMAIL_USER;
+  const pass = process.env.GMAIL_APP_PASSWORD;
+
+  if (!user || !pass) {
+    console.error('[email] Missing Gmail credentials in .env.local');
+    return { success: false, error: 'Missing Gmail configuration' };
   }
 
   try {
-    const response = await emailjs.send(
-      serviceId,
-      templateId,
-      {
-        to_email: to,
-        subject: subject,
-        // IMPORTANT: In your EmailJS dashboard, your template must have {{{html_content}}}
-        html_content: html,
-      },
-      {
-        publicKey: publicKey,
-        privateKey: privateKey,
-      }
-    );
+    const info = await transporter.sendMail({
+      from: `"Riadh Card" <${user}>`,
+      to,
+      subject,
+      html,
+    });
 
-    return { success: true, id: response.text }; // EmailJS returns OK in text
+    return { success: true, id: info.messageId };
   } catch (err: any) {
-    console.error('[email] EmailJS Error:', err.text || err.message || err);
-    return { success: false, error: err.text || 'Failed to send email' };
+    console.error('[email] Nodemailer Error:', err.message || err);
+    return { success: false, error: err.message || 'Failed to send email' };
   }
 }
 
@@ -70,7 +69,7 @@ export async function sendWelcomeEmail(params: {
 }): Promise<EmailResult> {
   const subject = `مرحباً بك في ${params.merchantName} 🎉`;
   const html = welcomeEmail(params);
-  return sendEmailJSTemplate(params.to, subject, html);
+  return sendNodemailerTemplate(params.to, subject, html);
 }
 
 export async function sendOtpEmail(params: {
@@ -80,7 +79,7 @@ export async function sendOtpEmail(params: {
 }): Promise<EmailResult> {
   const subject = `${params.otp} — رمز التحقق الخاص بك`;
   const html = otpEmail(params);
-  return sendEmailJSTemplate(params.to, subject, html);
+  return sendNodemailerTemplate(params.to, subject, html);
 }
 
 export async function sendRewardEmail(params: {
@@ -98,7 +97,7 @@ export async function sendRewardEmail(params: {
   };
   const subject = subjectMap[params.eventType];
   const html = rewardEmail(params);
-  return sendEmailJSTemplate(params.to, subject, html);
+  return sendNodemailerTemplate(params.to, subject, html);
 }
 
 export async function sendCampaignEmail(params: {
@@ -114,5 +113,5 @@ export async function sendCampaignEmail(params: {
 }): Promise<EmailResult> {
   const subject = `${params.campaignTitle} — ${params.merchantName}`;
   const html = campaignEmail(params);
-  return sendEmailJSTemplate(params.to, subject, html);
+  return sendNodemailerTemplate(params.to, subject, html);
 }

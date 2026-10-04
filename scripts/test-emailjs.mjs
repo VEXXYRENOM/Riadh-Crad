@@ -28,22 +28,34 @@ console.log('PublicKey:', publicKey);
 
 async function test() {
   try {
-    const response = await emailjs.send(
+    console.log('Sending test email to israhichri56@gmail.com...');
+    const response1 = await emailjs.send(
       serviceId,
       templateId,
       {
         to_email: 'israhichri56@gmail.com',
-        subject: 'Test from Riadh Card ✅',
-        html_content: '<h1 style="color:#D4AF37">Riadh Card</h1><p>If you received this, EmailJS is working correctly!</p>'
+        subject: 'TEST 1 - Plain Text',
+        html_content: 'This is a simple plain text email without any HTML. Just testing delivery.'
       },
-      {
-        publicKey: publicKey,
-        privateKey: privateKey,
-      }
+      { publicKey, privateKey }
     );
-    console.log('SUCCESS! Status:', response.status, '| Text:', response.text);
+    console.log('Result 1:', response1.status, response1.text);
+
+    console.log('Sending test email to htakiallah@gmail.com (Your personal email)...');
+    const response2 = await emailjs.send(
+      serviceId,
+      templateId,
+      {
+        to_email: 'htakiallah@gmail.com',
+        subject: 'TEST 2 - Plain Text',
+        html_content: 'Testing delivery to the main merchant account.'
+      },
+      { publicKey, privateKey }
+    );
+    console.log('Result 2:', response2.status, response2.text);
+
   } catch (err) {
-    console.error('FAILED:', JSON.stringify(err));
+    console.error('FAILED:', err.text || err.message || err);
   }
 }
 
